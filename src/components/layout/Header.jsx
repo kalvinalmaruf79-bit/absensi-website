@@ -36,7 +36,7 @@ export default function Header() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
+    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-gray-200 shadow-sm">
       <div className="flex items-center justify-between px-6 py-4">
         <div className="flex-1 max-w-xl">
           <div className="relative">
@@ -47,7 +47,7 @@ export default function Header() {
             <input
               type="text"
               placeholder="Cari sesuatu..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00a3d4] focus:border-transparent transition-all"
             />
           </div>
         </div>
@@ -56,7 +56,10 @@ export default function Header() {
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#00a3d4]/30 focus:ring-offset-1"
+              aria-haspopup="dialog"
+              aria-expanded={showNotifications}
+              aria-label="Buka notifikasi"
             >
               <Bell size={20} className="text-gray-600" />
               <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
@@ -100,10 +103,13 @@ export default function Header() {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#00a3d4]/30 focus:ring-offset-1"
+              aria-haspopup="menu"
+              aria-expanded={showDropdown}
+              aria-label="Buka menu pengguna"
             >
               <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ring-2 ring-[#00a3d4]/30"
                 style={{ backgroundColor: "#00a3d4" }}
               >
                 {user?.name?.charAt(0).toUpperCase()}

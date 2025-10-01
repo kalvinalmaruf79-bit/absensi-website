@@ -16,8 +16,11 @@ export function middleware(request) {
 
   // Jika ada token dan mencoba akses halaman login/register
   if (token && (pathname === "/login" || pathname === "/register")) {
-    // Redirect ke dashboard default (akan di-handle oleh client)
-    return NextResponse.redirect(new URL("/", request.url));
+    // Arahkan ke dasbor default, AuthContext di sisi klien akan menangani
+    // pengalihan ke dasbor yang sesuai dengan peran pengguna.
+    return NextResponse.redirect(
+      new URL("/super-admin/dashboard", request.url)
+    );
   }
 
   return NextResponse.next();

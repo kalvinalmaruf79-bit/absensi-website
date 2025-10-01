@@ -49,6 +49,11 @@ export const AuthProvider = ({ children }) => {
       const loginData = await authService.login(credentials);
       const { token, user: userData } = loginData;
 
+      // Tolak login jika role adalah siswa
+      if (userData.role === "siswa") {
+        throw new Error("Siswa hanya dapat login melalui aplikasi mobile.");
+      }
+
       // Set token dan user ke storage
       setToken(token);
       setUserToLs(userData);
@@ -61,6 +66,7 @@ export const AuthProvider = ({ children }) => {
       return loginData;
     } catch (error) {
       console.error("Login failed:", error);
+      // Teruskan error agar bisa ditangani di halaman login
       throw error;
     }
   };
@@ -78,12 +84,10 @@ export const AuthProvider = ({ children }) => {
 
   const getDashboardPath = (role) => {
     switch (role) {
-      case "super-admin":
+      case "super_admin":
         return "/super-admin/dashboard";
       case "guru":
         return "/guru/dashboard";
-      case "siswa":
-        return "/siswa/dashboard";
       default:
         return "/login";
     }

@@ -1,4 +1,4 @@
-// src/app/login/page.js
+// src/app/(auth)/login/page.js
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
@@ -12,29 +12,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const { login, user, loading: authLoading } = useAuth();
+  const { login, user, loading: authLoading, getDashboardPath } = useAuth();
   const router = useRouter();
 
   // Redirect jika sudah login
   useEffect(() => {
     if (!authLoading && user) {
-      const dashboardPath = getDashboardPathByRole(user.role);
+      const dashboardPath = getDashboardPath(user.role);
       router.replace(dashboardPath);
     }
-  }, [user, authLoading, router]);
-
-  const getDashboardPathByRole = (role) => {
-    switch (role) {
-      case "super-admin":
-        return "/super-admin/dashboard";
-      case "guru":
-        return "/guru/dashboard";
-      case "siswa":
-        return "/siswa/dashboard";
-      default:
-        return "/";
-    }
-  };
+  }, [user, authLoading, router, getDashboardPath]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -43,18 +30,22 @@ export default function LoginPage() {
 
     try {
       await login({ identifier, password });
-      // Login function di AuthContext sudah handle redirect
+      // Fungsi login di AuthContext sudah menangani redirect
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Login gagal. Periksa kembali NIP/NISN dan password Anda."
-      );
+      if (err.message === "Siswa hanya dapat login melalui aplikasi mobile.") {
+        setError(err.message);
+      } else {
+        setError(
+          err.response?.data?.message ||
+            "Login gagal. Periksa kembali NIP/NISN dan password Anda."
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Jika masih checking auth, tampilkan loading
+  // Jika masih memeriksa auth, tampilkan loading
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50">
@@ -73,7 +64,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-blue-50 via-white to-cyan-50">
-      {/* Left Side - Branding */}
+      {/* Sisi Kiri - Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-500 to-cyan-500 p-12 items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
         <div className="relative z-10 text-white max-w-md">
@@ -115,10 +106,10 @@ export default function LoginPage() {
         <div className="absolute left-0 bottom-0 w-96 h-96 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
       </div>
 
-      {/* Right Side - Login Form */}
+      {/* Sisi Kanan - Form Login */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          {/* Logo for Mobile */}
+          {/* Logo untuk Mobile */}
           <div className="lg:hidden flex items-center justify-center gap-3 mb-8">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
               <Scan className="text-white" size={24} />

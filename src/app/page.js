@@ -1,6 +1,7 @@
 // src/app/page.js
 "use client";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 import {
   Scan,
   Users,
@@ -16,6 +17,8 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  const { user, isAuthenticated, getDashboardPath } = useAuth();
+
   const features = [
     {
       icon: Scan,
@@ -65,12 +68,21 @@ export default function Home() {
             </div>
             <span className="text-2xl font-bold text-gray-900">SMKScan</span>
           </div>
-          <Link
-            href="/login"
-            className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all font-medium"
-          >
-            Login
-          </Link>
+          {isAuthenticated && user ? (
+            <Link
+              href={getDashboardPath(user.role)}
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all font-medium"
+            >
+              {user.name}
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="px-6 py-2.5 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-lg hover:shadow-lg transition-all font-medium"
+            >
+              Login
+            </Link>
+          )}
         </div>
       </header>
 
