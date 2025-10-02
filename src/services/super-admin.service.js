@@ -1,5 +1,3 @@
-// 3. src/services/super-admin.service.js
-// ============================================
 import axiosInstance from "@/lib/axios-instance";
 
 export const superAdminService = {
@@ -22,9 +20,9 @@ export const superAdminService = {
   /**
    * Update Settings
    * Body: {
-   *   namaSekolah?: string,
-   *   semesterAktif?: 'ganjil' | 'genap',
-   *   tahunAjaranAktif?: string
+   * namaSekolah?: string,
+   * semesterAktif?: 'ganjil' | 'genap',
+   * tahunAjaranAktif?: string
    * }
    */
   updateSettings: async (settings) => {
@@ -48,10 +46,10 @@ export const superAdminService = {
   /**
    * Create Guru
    * Body: {
-   *   name: string,
-   *   email: string,
-   *   identifier: string, // NIP
-   *   password?: string
+   * name: string,
+   * email: string,
+   * identifier: string, // NIP
+   * password?: string
    * }
    */
   createGuru: async (data) => {
@@ -62,11 +60,11 @@ export const superAdminService = {
   /**
    * Create Siswa
    * Body: {
-   *   name: string,
-   *   email: string,
-   *   identifier: string, // NISN
-   *   kelas: string, // ID kelas
-   *   password?: string
+   * name: string,
+   * email: string,
+   * identifier: string, // NISN
+   * kelas: string, // ID kelas
+   * password?: string
    * }
    */
   createSiswa: async (data) => {
@@ -113,10 +111,10 @@ export const superAdminService = {
    * Update User
    * Params: id (user ID)
    * Body: {
-   *   name?: string,
-   *   email?: string,
-   *   isActive?: boolean,
-   *   kelas?: string (untuk siswa)
+   * name?: string,
+   * email?: string,
+   * isActive?: boolean,
+   * kelas?: string (untuk siswa)
    * }
    */
   updateUser: async (id, data) => {
@@ -137,7 +135,7 @@ export const superAdminService = {
    * Reset User Password
    * Params: id (user ID)
    * Body: {
-   *   newPassword: string
+   * newPassword: string
    * }
    */
   resetPassword: async (id, newPassword) => {
@@ -153,9 +151,9 @@ export const superAdminService = {
   /**
    * Create Mata Pelajaran
    * Body: {
-   *   nama: string,
-   *   kode: string,
-   *   deskripsi?: string
+   * nama: string,
+   * kode: string,
+   * deskripsi?: string
    * }
    */
   createMataPelajaran: async (data) => {
@@ -192,10 +190,10 @@ export const superAdminService = {
    * Update Mata Pelajaran
    * Params: id (mata pelajaran ID)
    * Body: {
-   *   nama?: string,
-   *   kode?: string,
-   *   deskripsi?: string,
-   *   isActive?: boolean
+   * nama?: string,
+   * kode?: string,
+   * deskripsi?: string,
+   * isActive?: boolean
    * }
    */
   updateMataPelajaran: async (id, data) => {
@@ -220,8 +218,8 @@ export const superAdminService = {
   /**
    * Assign Guru to Mata Pelajaran
    * Body: {
-   *   mataPelajaranId: string,
-   *   guruId: string
+   * mataPelajaranId: string,
+   * guruId: string
    * }
    */
   assignGuruMataPelajaran: async (data) => {
@@ -235,8 +233,8 @@ export const superAdminService = {
   /**
    * Unassign Guru from Mata Pelajaran
    * Body: {
-   *   mataPelajaranId: string,
-   *   guruId: string
+   * mataPelajaranId: string,
+   * guruId: string
    * }
    */
   unassignGuruMataPelajaran: async (data) => {
@@ -247,61 +245,50 @@ export const superAdminService = {
     return response.data;
   },
 
-  // === KELAS MANAGEMENT ===
-
-  /**
-   * Create Kelas
-   * Body: {
-   *   nama: string,
-   *   tingkat: string,
-   *   jurusan: string,
-   *   tahunAjaran: string,
-   *   waliKelas: string // ID guru
-   * }
-   */
-  createKelas: async (data) => {
-    const response = await axiosInstance.post("/super-admin/kelas", data);
-    return response.data;
-  },
-
-  /**
-   * Get All Kelas
-   * Query: ?tahunAjaran=2024/2025&tingkat=X
-   */
+  // === KELAS MANAGEMENT (UPDATED WITH MULTI-LEVEL DELETE) ===
+  /** * Get All Kelas * Query: ?includeInactive=true untuk melihat kelas nonaktif juga */
   getAllKelas: async (params) => {
     const response = await axiosInstance.get("/super-admin/kelas", { params });
     return response.data;
   },
-
-  /**
-   * Get Kelas By ID
-   * Params: id (kelas ID)
-   */
+  /** * Get Kelas Stats - Detail info sebelum delete * Params: id (kelas ID) */
+  getKelasStats: async (id) => {
+    const response = await axiosInstance.get(`/super-admin/kelas/${id}/stats`);
+    return response.data;
+  },
+  /** * Get Kelas By ID * Params: id (kelas ID) */
   getKelasById: async (id) => {
     const response = await axiosInstance.get(`/super-admin/kelas/${id}`);
     return response.data;
   },
-
-  /**
-   * Update Kelas
-   * Params: id (kelas ID)
-   * Body: {
-   *   nama?: string,
-   *   waliKelas?: string,
-   *   isActive?: boolean
-   * }
-   */
+  /** * Create Kelas * Body: { * nama: string, * tingkat: string, * jurusan: string, * tahunAjaran: string, * waliKelas: string // ID guru * } */
+  createKelas: async (data) => {
+    const response = await axiosInstance.post("/super-admin/kelas", data);
+    return response.data;
+  },
+  /** * Update Kelas * Params: id (kelas ID) * Body: { * nama?: string, * waliKelas?: string, * isActive?: boolean * } */
   updateKelas: async (id, data) => {
     const response = await axiosInstance.put(`/super-admin/kelas/${id}`, data);
     return response.data;
   },
-
-  /**
-   * Delete Kelas
-   * Params: id (kelas ID)
-   */
+  /** * Soft Delete Kelas - Nonaktifkan kelas * Params: id (kelas ID) */
   deleteKelas: async (id) => {
     const response = await axiosInstance.delete(`/super-admin/kelas/${id}`);
+    return response.data;
+  },
+  /** * Force Delete Kelas - Hapus permanen * Params: id (kelas ID) * Query: ?confirm=yes untuk konfirmasi final */
+  forceDeleteKelas: async (id, confirmed = false) => {
+    const url = confirmed
+      ? `/super-admin/kelas/${id}/force?confirm=yes`
+      : `/super-admin/kelas/${id}/force`;
+    const response = await axiosInstance.delete(url);
+    return response.data;
+  },
+  /** * Restore Kelas - Aktifkan kembali kelas yang di-soft delete * Params: id (kelas ID) */
+  restoreKelas: async (id) => {
+    const response = await axiosInstance.put(
+      `/super-admin/kelas/${id}/restore`
+    );
     return response.data;
   },
 
@@ -310,14 +297,14 @@ export const superAdminService = {
   /**
    * Create Jadwal
    * Body: {
-   *   kelas: string, // ID kelas
-   *   mataPelajaran: string, // ID mata pelajaran
-   *   guru: string, // ID guru
-   *   hari: 'senin'|'selasa'|'rabu'|'kamis'|'jumat'|'sabtu',
-   *   jamMulai: string, // "08:00"
-   *   jamSelesai: string, // "10:30"
-   *   semester: 'ganjil'|'genap',
-   *   tahunAjaran: string
+   * kelas: string, // ID kelas
+   * mataPelajaran: string, // ID mata pelajaran
+   * guru: string, // ID guru
+   * hari: 'senin'|'selasa'|'rabu'|'kamis'|'jumat'|'sabtu',
+   * jamMulai: string, // "08:00"
+   * jamSelesai: string, // "10:30"
+   * semester: 'ganjil'|'genap',
+   * tahunAjaran: string
    * }
    */
   createJadwal: async (data) => {
@@ -330,7 +317,9 @@ export const superAdminService = {
    * Query: ?kelasId=xxx&guruId=xxx&hari=senin&semester=ganjil&tahunAjaran=2024/2025
    */
   getAllJadwal: async (params) => {
-    const response = await axiosInstance.get("/super-admin/jadwal", { params });
+    const response = await axiosInstance.get("/super-admin/jadwal", {
+      params,
+    });
     return response.data;
   },
 
@@ -370,14 +359,14 @@ export const superAdminService = {
   /**
    * Process Promotion (Kenaikan Kelas)
    * Body: {
-   *   fromKelasId: string,
-   *   tahunAjaran: string,
-   *   semester: string,
-   *   siswaData: [{
-   *     siswaId: string,
-   *     status: 'Naik Kelas' | 'Tinggal Kelas' | 'Lulus',
-   *     toKelasId?: string
-   *   }]
+   * fromKelasId: string,
+   * tahunAjaran: string,
+   * semester: string,
+   * siswaData: [{
+   * siswaId: string,
+   * status: 'Naik Kelas' | 'Tinggal Kelas' | 'Lulus',
+   * toKelasId?: string
+   * }]
    * }
    */
   processPromotion: async (data) => {

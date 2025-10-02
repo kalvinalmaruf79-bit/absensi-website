@@ -1,66 +1,94 @@
 // src/app/(dashboard)/super-admin/users/create/page.js
 "use client";
-
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { superAdminService } from "@/services/super-admin.service";
-import { handleApiError } from "@/lib/api-helpers";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Alert from "@/components/ui/Alert";
 import UserForm from "@/components/super-admin/UserForm";
-import { ArrowLeft, Info } from "lucide-react";
+import { superAdminService } from "@/services/super-admin.service";
+import { handleApiError } from "@/lib/api-helpers";
 
 export default function CreateUserPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(false);
 
-  const handleSubmit = async (data, role) => {
+  const handleSubmit = async (userData, role) => {
     setLoading(true);
     setError(null);
 
     try {
-      // Call appropriate service based on role
+      // Call the appropriate API based on role
       if (role === "guru") {
-        await superAdminService.createGuru(data);
+        await superAdminService.createGuru(userData);
       } else if (role === "siswa") {
-        await superAdminService.createSiswa(data);
+        await superAdminService.createSiswa(userData);
       }
 
-      // Redirect to users page on success
-      router.push("/super-admin/users");
+      setSuccess(true);
+
+      // Redirect to users page after 2 seconds
+      setTimeout(() => {
+        router.push("/super-admin/users");
+      }, 2000);
     } catch (err) {
+      console.error("Error creating user:", err);
       const errorData = handleApiError(err);
       setError(errorData.message);
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
       setLoading(false);
     }
   };
 
   const handleCancel = () => {
-    router.back();
+    router.push("/super-admin/users");
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
   };
 
   return (
-    <div className="container mx-auto px-6 py-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="mb-8"
-      >
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={<ArrowLeft className="w-5 h-5" />}
-          onClick={handleCancel}
-          className="mb-4"
-        >
-          Kembali
-        </Button>
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="container mx-auto px-6 py-8"
+    >
+      <motion.div variants={itemVariants} className="mb-8">
+        <div className="flex items-center gap-4 mb-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleCancel}
+            icon={
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            }
+          >
+            Kembali
+          </Button>
+        </div>
         <h1 className="text-3xl font-bold text-neutral-text">
           Tambah User Baru
         </h1>
@@ -69,7 +97,6 @@ export default function CreateUserPage() {
         </p>
       </motion.div>
 
-      {/* Error Alert */}
       {error && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -82,14 +109,20 @@ export default function CreateUserPage() {
         </motion.div>
       )}
 
-      {/* Form */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="max-w-3xl"
-      >
-        <Card>
+      {success && (
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-6"
+        >
+          <Alert type="success">
+            User berhasil dibuat! Mengalihkan ke halaman users...
+          </Alert>
+        </motion.div>
+      )}
+
+      <motion.div variants={itemVariants}>
+        <Card className="max-w-3xl">
           <UserForm
             mode="create"
             onSubmit={handleSubmit}
@@ -99,17 +132,23 @@ export default function CreateUserPage() {
         </Card>
       </motion.div>
 
-      {/* Info Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="max-w-3xl mt-6"
-      >
+      <motion.div variants={itemVariants} className="max-w-3xl mt-6">
         <Card className="bg-blue-50 border border-blue-200">
           <div className="flex gap-4">
             <div className="flex-shrink-0">
-              <Info className="w-6 h-6 text-blue-600" />
+              <svg
+                className="w-6 h-6 text-blue-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
             </div>
             <div>
               <h4 className="font-semibold text-blue-900 mb-2">
@@ -120,12 +159,11 @@ export default function CreateUserPage() {
                 <li>• Isi semua informasi yang diperlukan</li>
                 <li>• Password akan di-generate otomatis jika tidak diisi</li>
                 <li>• Untuk siswa, pilih kelas yang sesuai</li>
-                <li>• Pastikan email dan NIP/NISN belum terdaftar</li>
               </ul>
             </div>
           </div>
         </Card>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
