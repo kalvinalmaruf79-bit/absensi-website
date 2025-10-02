@@ -246,6 +246,41 @@ export const superAdminService = {
     return response.data;
   },
 
+  /**
+   * Get Mata Pelajaran Stats - Detail info sebelum delete
+   * Params: id (mata pelajaran ID)
+   */
+  getMataPelajaranStats: async (id) => {
+    const response = await axiosInstance.get(
+      `/super-admin/mata-pelajaran/${id}/stats`
+    );
+    return response.data;
+  },
+
+  /**
+   * Force Delete Mata Pelajaran - Hapus permanen
+   * Params: id (mata pelajaran ID)
+   * Query: ?confirm=yes untuk konfirmasi final
+   */
+  forceDeleteMataPelajaran: async (id, confirmed = false) => {
+    const url = confirmed
+      ? `/super-admin/mata-pelajaran/${id}/force?confirm=yes`
+      : `/super-admin/mata-pelajaran/${id}/force`;
+    const response = await axiosInstance.delete(url);
+    return response.data;
+  },
+
+  /**
+   * Restore Mata Pelajaran - Aktifkan kembali mata pelajaran yang di-soft delete
+   * Params: id (mata pelajaran ID)
+   */
+  restoreMataPelajaran: async (id) => {
+    const response = await axiosInstance.put(
+      `/super-admin/mata-pelajaran/${id}/restore`
+    );
+    return response.data;
+  },
+
   // === KELAS MANAGEMENT (UPDATED WITH MULTI-LEVEL DELETE) ===
   /** * Get All Kelas * Query: ?includeInactive=true untuk melihat kelas nonaktif juga */
   getAllKelas: async (params) => {

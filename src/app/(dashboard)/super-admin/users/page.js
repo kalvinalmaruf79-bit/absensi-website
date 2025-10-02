@@ -106,23 +106,43 @@ export default function UsersPage() {
   const handleImport = async (file) => {
     try {
       const response = await superAdminService.importUsers(file);
-      const { berhasil, gagal } = response.report;
+      const { berhasil, gagal, warnings } = response.report;
 
-      showToast.success(`Berhasil mengimpor ${berhasil} user baru.`);
-
-      if (gagal > 0) {
-        showToast.warning(
-          `${gagal} baris data gagal diimpor. Cek konsol untuk detail.`
-        );
-        console.warn("Import Errors:", response.report.errors);
+      // Tampilkan hasil import
+      if (berhasil > 0) {
+        showToast.success(`Berhasil mengimpor ${berhasil} user baru.`, {
+          duration: 5000,
+        });
       }
 
-      setShowImportModal(false);
+      if (warnings && warnings.length > 0) {
+        showToast.warning(
+          `${warnings.length} peringatan. Cek konsol untuk detail.`,
+          { duration: 4000 }
+        );
+        console.warn("Import Warnings:", warnings);
+      }
+
+      if (gagal > 0) {
+        showToast.error(
+          `${gagal} baris data gagal diimpor. Cek konsol untuk detail.`,
+          { duration: 6000 }
+        );
+        console.error("Import Errors:", response.report.errors);
+      }
+
+      // Jika semua berhasil, tutup modal
+      if (gagal === 0) {
+        setShowImportModal(false);
+      }
+
+      // Refresh data
       setFilters((prev) => ({ ...prev, page: 1 }));
     } catch (err) {
       const errorData = handleApiError(err);
-      // Menampilkan error di toast, tidak melempar kembali ke modal
-      showToast.error(errorData.message || "Gagal melakukan impor.");
+      showToast.error(errorData.message || "Gagal melakukan impor.", {
+        duration: 5000,
+      });
     }
   };
 
