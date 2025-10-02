@@ -1,7 +1,7 @@
 // src/app/(dashboard)/super-admin/kelas/edit/[id]/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, GraduationCap, Info, Loader2 } from "lucide-react";
 import KelasForm from "@/components/super-admin/KelasForm";
@@ -15,74 +15,67 @@ export default function EditKelasPage() {
 
   const [kelasData, setKelasData] = useState(null);
   const [guruList, setGuruList] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Untuk submit form
+  const [isLoadingData, setIsLoadingData] = useState(true); // Untuk memuat data awal
 
-  useEffect(() => {
-    if (kelasId) {
-      fetchKelasData();
-      fetchGuruList();
-    }
-  }, [kelasId]);
+  const fetchInitialData = useCallback(async () => {
+    if (!kelasId) return;
 
-  const fetchKelasData = async () => {
+    setIsLoadingData(true);
     try {
-      const response = await superAdminService.getKelasById(kelasId);
-      if (response.success) {
-        setKelasData(response.data);
+      // Ambil data kelas dan data guru secara paralel
+      const [kelasResponse, guruResponse] = await Promise.all([
+        superAdminService.getKelasById(kelasId),
+        superAdminService.getAllUsers({
+          role: "guru",
+          isActive: true,
+          limit: 1000, // Ambil semua guru aktif untuk dropdown
+        }),
+      ]);
+
+      // Proses data kelas
+      if (kelasResponse.success) {
+        setKelasData(kelasResponse.data);
+      } else {
+        throw new Error("Gagal memuat data kelas.");
       }
+
+      // Proses data guru dari response paginated
+      const guruData = guruResponse.docs || [];
+      setGuruList(guruData);
     } catch (error) {
-      showToast.error("Gagal memuat data kelas");
-      console.error("Error fetching kelas:", error);
+      showToast.error(error.message || "Gagal memuat data untuk edit.");
+      console.error("Error fetching initial data:", error);
+      // Kembali ke halaman sebelumnya jika gagal memuat data penting
       router.push("/super-admin/kelas");
-    }
-  };
-
-  const fetchGuruList = async () => {
-    try {
-      const response = await superAdminService.getAllUsers({
-        role: "guru",
-        isActive: true,
-      });
-
-      if (response.success) {
-        setGuruList(response.data);
-      } else if (Array.isArray(response)) {
-        setGuruList(response);
-      } else if (response.data && Array.isArray(response.data)) {
-        setGuruList(response.data);
-      }
-    } catch (error) {
-      showToast.error("Gagal memuat data guru");
-      console.error("Error fetching guru:", error);
     } finally {
       setIsLoadingData(false);
     }
-  };
+  }, [kelasId, router]);
+
+  useEffect(() => {
+    fetchInitialData();
+  }, [fetchInitialData]);
 
   const handleSubmit = async (formData) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-
       const submitData = {
         nama: formData.nama,
         tingkat: formData.tingkat,
         jurusan: formData.jurusan || "",
         tahunAjaran: formData.tahunAjaran,
+        // Kirim null jika wali kelas dikosongkan
+        waliKelas: formData.waliKelas || null,
       };
-
-      // Only include waliKelas if selected
-      if (formData.waliKelas) {
-        submitData.waliKelas = formData.waliKelas;
-      }
-
-      console.log("Updating kelas data:", submitData);
 
       const response = await superAdminService.updateKelas(kelasId, submitData);
 
       if (response.success) {
-        showToast.success("Kelas berhasil diupdate");
+        showToast.success(response.message || "Kelas berhasil diupdate");
         router.push("/super-admin/kelas");
+      } else {
+        throw new Error(response.message || "Gagal mengupdate kelas");
       }
     } catch (error) {
       console.error("Error updating kelas:", error);
@@ -95,17 +88,15 @@ export default function EditKelasPage() {
   };
 
   const handleCancel = () => {
-    router.push("/super-admin/kelas");
+    router.back();
   };
 
   if (isLoadingData) {
     return (
-      <div className="container mx-auto px-6 py-8">
-        <div className="flex items-center justify-center py-12">
-          <div className="flex items-center gap-3">
-            <Loader2 className="w-8 h-8 text-[#00a3d4] animate-spin" />
-            <span className="text-gray-600">Memuat data...</span>
-          </div>
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-[#00a3d4] animate-spin" />
+          <p className="text-neutral-secondary">Memuat data kelas...</p>
         </div>
       </div>
     );
@@ -115,39 +106,41 @@ export default function EditKelasPage() {
     <div className="container mx-auto px-6 py-8">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleCancel}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Kembali"
-            >
-              <ArrowLeft className="w-6 h-6 text-gray-600" />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00a3d4] to-[#005f8b] flex items-center justify-center shadow-lg">
-                <GraduationCap className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Edit Kelas</h1>
-                <p className="text-gray-600 mt-1">
-                  Update informasi kelas {kelasData?.nama}
-                </p>
-              </div>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleCancel}
+            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Kembali"
+          >
+            <ArrowLeft className="w-6 h-6 text-gray-600" />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#00a3d4] to-[#005f8b] flex items-center justify-center shadow-lg">
+              <GraduationCap className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-neutral-text">
+                Edit Kelas
+              </h1>
+              <p className="text-neutral-secondary mt-1">
+                Update informasi untuk kelas {kelasData?.nama}
+              </p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Form Card */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6 border border-gray-200">
-        <KelasForm
-          onSubmit={handleSubmit}
-          onCancel={handleCancel}
-          guruList={guruList}
-          isLoading={isLoading}
-          initialData={kelasData}
-        />
+      <div className="bg-white rounded-lg shadow-soft p-6 md:p-8 mb-6 border border-neutral-border">
+        {kelasData && (
+          <KelasForm
+            onSubmit={handleSubmit}
+            onCancel={handleCancel}
+            guruList={guruList}
+            isLoading={isLoading}
+            initialData={kelasData}
+          />
+        )}
       </div>
 
       {/* Info Box */}
@@ -162,20 +155,20 @@ export default function EditKelasPage() {
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 flex-shrink-0"></span>
                 <span>
-                  Perubahan data kelas akan mempengaruhi jadwal dan informasi
-                  terkait
+                  Perubahan data akan langsung tersimpan dan mempengaruhi data
+                  lain yang terkait.
                 </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 flex-shrink-0"></span>
                 <span>
-                  Pastikan data yang diinput sudah benar sebelum menyimpan
+                  Pastikan data yang diinput sudah benar sebelum menyimpan.
                 </span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 flex-shrink-0"></span>
                 <span>
-                  Wali kelas dapat diubah atau dikosongkan jika diperlukan
+                  Wali kelas dapat diubah atau dikosongkan jika diperlukan.
                 </span>
               </li>
             </ul>

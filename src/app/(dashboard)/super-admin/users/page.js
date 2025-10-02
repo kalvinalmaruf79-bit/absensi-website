@@ -1,106 +1,92 @@
 // src/app/(dashboard)/super-admin/users/page.js
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import debounce from "lodash.debounce";
 import { superAdminService } from "@/services/super-admin.service";
 import { handleApiError } from "@/lib/api-helpers";
+import { showToast } from "@/lib/toast"; // 1. Impor toast utility
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Alert from "@/components/ui/Alert";
 import UserTable from "@/components/super-admin/UserTable";
+import Pagination from "@/components/shared/Pagination";
 import ImportUserModal from "@/components/super-admin/ImportUserModal";
-import { Users, Upload, Plus, Search } from "lucide-react";
+import { Users, Upload, Plus, Search, Loader2 } from "lucide-react";
 
 export default function UsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
+  // State success tidak lagi diperlukan karena kita akan menggunakan toast
+  // const [success, setSuccess] = useState(null);
 
-  // Filters - pisahkan menjadi state individual
-  const [role, setRole] = useState("");
-  const [search, setSearch] = useState("");
-  const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
-
-  // Pagination
-  const [pagination, setPagination] = useState({
-    total: 0,
+  const [filters, setFilters] = useState({
+    role: "",
+    search: "",
     page: 1,
-    pages: 1,
+    limit: 10,
   });
 
-  // Modal states
+  const [pagination, setPagination] = useState({
+    totalPages: 1,
+    totalDocs: 0,
+  });
+
   const [showImportModal, setShowImportModal] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
 
-  // Gunakan useCallback untuk fetchUsers
-  const fetchUsers = useCallback(async () => {
+  const fetchUsers = useCallback(async (currentFilters) => {
     setLoading(true);
     setError(null);
-
     try {
-      const filters = { role, search, page, limit };
-      console.log("Fetching users with filters:", filters);
-      const response = await superAdminService.getAllUsers(filters);
-
-      console.log("Full API Response:", response);
-
-      // Handle different response structures
-      let userData = [];
-      let paginationData = {
-        total: 0,
-        page: page,
-        pages: 1,
-      };
-
-      // Check if response has data property
-      if (response.data) {
-        if (Array.isArray(response.data)) {
-          userData = response.data;
-        } else if (response.data.data && Array.isArray(response.data.data)) {
-          userData = response.data.data;
-        }
-
-        // Check for pagination info
-        if (response.data.pagination) {
-          paginationData = response.data.pagination;
-        } else if (response.pagination) {
-          paginationData = response.pagination;
-        }
-      } else if (Array.isArray(response)) {
-        // Direct array response
-        userData = response;
-        paginationData.total = response.length;
-      }
-
-      console.log("Processed users:", userData);
-      console.log("Pagination:", paginationData);
-
-      setUsers(userData);
-      setPagination(paginationData);
+      const response = await superAdminService.getAllUsers(currentFilters);
+      setUsers(response.docs || []);
+      setPagination({
+        totalPages: response.totalPages || 1,
+        totalDocs: response.totalDocs || 0,
+        limit: response.limit,
+        page: response.page,
+      });
     } catch (err) {
-      console.error("Error fetching users:", err);
       const errorData = handleApiError(err);
       setError(errorData.message || "Gagal memuat data users");
     } finally {
       setLoading(false);
     }
-  }, [role, search, page, limit]);
+  }, []);
 
-  // useEffect dengan dependency yang benar
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((searchValue) => {
+        setFilters((prev) => ({ ...prev, page: 1, search: searchValue }));
+      }, 500),
+    []
+  );
+
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    fetchUsers(filters);
+  }, [filters, fetchUsers]);
+
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
 
   const handleEdit = (user) => {
     router.push(`/super-admin/users/${user._id}`);
   };
 
   const handleDelete = async (user) => {
+    if (deleteConfirm && deleteConfirm._id !== user._id) {
+      setDeleteConfirm(user);
+      return;
+    }
+
     if (!deleteConfirm) {
       setDeleteConfirm(user);
       return;
@@ -108,46 +94,50 @@ export default function UsersPage() {
 
     try {
       await superAdminService.deleteUser(user._id);
-      setSuccess(`User ${user.name} berhasil dihapus`);
+      showToast.success(`User ${user.name} berhasil dinonaktifkan`);
       setDeleteConfirm(null);
-      fetchUsers();
-
-      setTimeout(() => setSuccess(null), 3000);
+      fetchUsers(filters);
     } catch (err) {
       const errorData = handleApiError(err);
-      setError(errorData.message || "Gagal menghapus user");
+      showToast.error(errorData.message || "Gagal menghapus user");
     }
   };
 
   const handleImport = async (file) => {
     try {
       const response = await superAdminService.importUsers(file);
-      setSuccess(`Berhasil import ${response.data?.imported || 0} users`);
-      setShowImportModal(false);
-      fetchUsers();
+      const { berhasil, gagal } = response.report;
 
-      setTimeout(() => setSuccess(null), 3000);
+      showToast.success(`Berhasil mengimpor ${berhasil} user baru.`);
+
+      if (gagal > 0) {
+        showToast.warning(
+          `${gagal} baris data gagal diimpor. Cek konsol untuk detail.`
+        );
+        console.warn("Import Errors:", response.report.errors);
+      }
+
+      setShowImportModal(false);
+      setFilters((prev) => ({ ...prev, page: 1 }));
     } catch (err) {
       const errorData = handleApiError(err);
-      throw new Error(errorData.message || "Gagal import users");
+      // Menampilkan error di toast, tidak melempar kembali ke modal
+      showToast.error(errorData.message || "Gagal melakukan impor.");
     }
   };
 
   const handleFilterChange = (key, value) => {
-    if (key === "role") setRole(value);
-    else if (key === "search") setSearch(value);
-    else if (key === "limit") setLimit(value);
-    // Reset page ke 1 saat filter berubah
-    setPage(1);
+    if (key === "search") {
+      debouncedSearch(value);
+    } else {
+      setFilters((prev) => ({ ...prev, page: 1, [key]: value }));
+    }
   };
 
   const handlePageChange = (newPage) => {
-    setPage(newPage);
-  };
-
-  // Debounced search
-  const handleSearchChange = (value) => {
-    handleFilterChange("search", value);
+    if (newPage > 0 && newPage <= pagination.totalPages) {
+      setFilters((prev) => ({ ...prev, page: newPage }));
+    }
   };
 
   return (
@@ -168,7 +158,7 @@ export default function UsersPage() {
                 Manajemen Users
               </h1>
               <p className="text-neutral-secondary mt-1">
-                Kelola data guru dan siswa
+                Total {pagination.totalDocs} user terdaftar
               </p>
             </div>
           </div>
@@ -204,18 +194,6 @@ export default function UsersPage() {
         </motion.div>
       )}
 
-      {success && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <Alert type="success" onClose={() => setSuccess(null)}>
-            {success}
-          </Alert>
-        </motion.div>
-      )}
-
       {/* Delete Confirmation */}
       {deleteConfirm && (
         <motion.div
@@ -226,8 +204,8 @@ export default function UsersPage() {
           <Alert type="warning">
             <div className="flex items-center justify-between">
               <span>
-                Yakin ingin menghapus user <strong>{deleteConfirm.name}</strong>
-                ?
+                Yakin ingin menonaktifkan user{" "}
+                <strong>{deleteConfirm.name}</strong>?
               </span>
               <div className="flex gap-2">
                 <Button
@@ -242,7 +220,7 @@ export default function UsersPage() {
                   variant="danger"
                   onClick={() => handleDelete(deleteConfirm)}
                 >
-                  Hapus
+                  Ya, Nonaktifkan
                 </Button>
               </div>
             </div>
@@ -264,24 +242,22 @@ export default function UsersPage() {
                 type="text"
                 placeholder="Cari nama, email, atau NIP/NISN..."
                 className="w-full pl-10 pr-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main"
-                value={search}
-                onChange={(e) => handleSearchChange(e.target.value)}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
               />
             </div>
             <div className="flex gap-3">
               <select
                 className="px-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main bg-white"
-                value={role}
+                value={filters.role}
                 onChange={(e) => handleFilterChange("role", e.target.value)}
               >
                 <option value="">Semua Role</option>
                 <option value="guru">Guru</option>
                 <option value="siswa">Siswa</option>
-                <option value="super_admin">Super Admin</option>
               </select>
               <select
                 className="px-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main bg-white"
-                value={limit}
+                value={filters.limit}
                 onChange={(e) =>
                   handleFilterChange("limit", parseInt(e.target.value))
                 }
@@ -289,7 +265,6 @@ export default function UsersPage() {
                 <option value="10">10 per halaman</option>
                 <option value="25">25 per halaman</option>
                 <option value="50">50 per halaman</option>
-                <option value="100">100 per halaman</option>
               </select>
             </div>
           </div>
@@ -304,30 +279,17 @@ export default function UsersPage() {
       >
         <Card>
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 rounded-full bg-[#00a3d4] animate-pulse" />
-                <div className="w-2 h-2 rounded-full bg-[#00a3d4] animate-pulse [animation-delay:0.2s]" />
-                <div className="w-2 h-2 rounded-full bg-[#00a3d4] animate-pulse [animation-delay:0.4s]" />
-              </div>
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 text-primary-main animate-spin" />
             </div>
           ) : users.length === 0 ? (
             <div className="text-center py-12">
               <Users className="w-16 h-16 text-neutral-secondary mx-auto mb-4" />
               <p className="text-neutral-secondary text-lg">
-                {search || role
-                  ? "Tidak ada data user yang sesuai filter"
-                  : "Tidak ada data user"}
+                {filters.search || filters.role
+                  ? "Tidak ada user yang sesuai dengan filter"
+                  : "Belum ada data user"}
               </p>
-              {!search && !role && (
-                <Button
-                  variant="primary"
-                  className="mt-4"
-                  onClick={() => router.push("/super-admin/users/create")}
-                >
-                  Tambah User Pertama
-                </Button>
-              )}
             </div>
           ) : (
             <>
@@ -335,62 +297,14 @@ export default function UsersPage() {
                 users={users}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                loading={loading}
               />
-
-              {/* Pagination */}
-              {pagination.pages > 1 && (
-                <div className="flex items-center justify-between mt-6 pt-6 border-t">
-                  <p className="text-sm text-neutral-secondary">
-                    Menampilkan {(pagination.page - 1) * limit + 1} -{" "}
-                    {Math.min(pagination.page * limit, pagination.total)} dari{" "}
-                    {pagination.total} users
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={pagination.page === 1}
-                      onClick={() => handlePageChange(pagination.page - 1)}
-                    >
-                      Sebelumnya
-                    </Button>
-                    {[...Array(Math.min(pagination.pages, 5))].map((_, i) => {
-                      let pageNum;
-                      if (pagination.pages <= 5) {
-                        pageNum = i + 1;
-                      } else if (pagination.page <= 3) {
-                        pageNum = i + 1;
-                      } else if (pagination.page >= pagination.pages - 2) {
-                        pageNum = pagination.pages - 4 + i;
-                      } else {
-                        pageNum = pagination.page - 2 + i;
-                      }
-
-                      return (
-                        <Button
-                          key={pageNum}
-                          size="sm"
-                          variant={
-                            pagination.page === pageNum
-                              ? "primary"
-                              : "secondary"
-                          }
-                          onClick={() => handlePageChange(pageNum)}
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      disabled={pagination.page === pagination.pages}
-                      onClick={() => handlePageChange(pagination.page + 1)}
-                    >
-                      Selanjutnya
-                    </Button>
-                  </div>
+              {pagination.totalPages > 1 && (
+                <div className="mt-6">
+                  <Pagination
+                    currentPage={pagination.page}
+                    totalPages={pagination.totalPages}
+                    onPageChange={handlePageChange}
+                  />
                 </div>
               )}
             </>

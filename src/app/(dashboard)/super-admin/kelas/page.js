@@ -1,9 +1,10 @@
 // src/app/(dashboard)/super-admin/kelas/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import debounce from "lodash.debounce";
 import {
   Plus,
   Search,
@@ -11,69 +12,58 @@ import {
   RefreshCw,
   GraduationCap,
   Archive,
+  Loader2,
 } from "lucide-react";
 import KelasTable from "@/components/super-admin/KelasTable";
 import DeleteKelasModal from "@/components/super-admin/DeleteKelasModal";
+import Pagination from "@/components/shared/Pagination";
+import EmptyState from "@/components/shared/EmptyState";
 import { superAdminService } from "@/services/super-admin.service";
 import { showToast } from "@/lib/toast";
-
+import Card from "@/components/ui/Card";
 export default function KelasPage() {
   const router = useRouter();
   const [kelas, setKelas] = useState([]);
-  const [filteredKelas, setFilteredKelas] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterTingkat, setFilterTingkat] = useState("");
-  const [filterTahunAjaran, setFilterTahunAjaran] = useState("");
-  const [showInactive, setShowInactive] = useState(false);
 
-  // Modal states
+  // State terpusat untuk filter, pencarian, dan pagination
+  const [filters, setFilters] = useState({
+    search: "",
+    tingkat: "",
+    tahunAjaran: "",
+    isActive: "true", // Default menampilkan yang aktif
+    page: 1,
+    limit: 10,
+  });
+
+  // State untuk menyimpan data pagination dari API
+  const [pagination, setPagination] = useState({
+    totalPages: 1,
+    totalDocs: 0,
+  });
+
+  // State untuk modal
   const [selectedKelas, setSelectedKelas] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const [stats, setStats] = useState({
-    total: 0,
-    aktif: 0,
-    nonaktif: 0,
-    totalSiswa: 0,
-  });
+  // State untuk opsi dropdown tahun ajaran
+  const [tahunAjaranOptions, setTahunAjaranOptions] = useState([]);
 
-  useEffect(() => {
-    fetchKelas();
-  }, [showInactive]);
-
-  useEffect(() => {
-    filterData();
-  }, [searchTerm, filterTingkat, filterTahunAjaran, kelas]);
-
-  const fetchKelas = async () => {
+  const fetchKelas = useCallback(async (currentFilters) => {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      const response = await superAdminService.getAllKelas({
-        includeInactive: showInactive,
-      });
-
-      let kelasData = [];
-      if (response.success && Array.isArray(response.data)) {
-        kelasData = response.data;
-      } else if (Array.isArray(response)) {
-        kelasData = response;
-      } else if (response.data && Array.isArray(response.data)) {
-        kelasData = response.data;
+      const response = await superAdminService.getAllKelas(currentFilters);
+      if (response.success) {
+        setKelas(response.data || []);
+        setPagination({
+          totalPages: response.totalPages || 1,
+          totalDocs: response.totalData || 0,
+          page: response.page,
+          limit: response.limit,
+        });
+      } else {
+        showToast.error(response.message || "Gagal memuat data.");
       }
-
-      const transformedData = kelasData.map((item) => ({
-        ...item,
-        jumlahSiswa: item.siswa?.length || 0,
-        kode:
-          item.kode ||
-          `${item.tingkat}-${item.jurusan
-            ?.substring(0, 3)
-            .toUpperCase()}-${item.nama.split(" ").pop()}`,
-      }));
-
-      setKelas(transformedData);
-      calculateStats(transformedData);
     } catch (error) {
       console.error("Error fetching kelas:", error);
       showToast.error(
@@ -81,55 +71,68 @@ export default function KelasPage() {
           "Gagal memuat data kelas. Silakan coba lagi."
       );
       setKelas([]);
-      setFilteredKelas([]);
     } finally {
       setIsLoading(false);
     }
+  }, []);
+
+  // Ambil data tahun ajaran unik saat pertama kali load
+  useEffect(() => {
+    const fetchAllTahunAjaran = async () => {
+      try {
+        // Panggil API tanpa limit untuk mendapatkan semua data unik
+        const response = await superAdminService.getAllKelas({ limit: 1000 });
+        if (response.success) {
+          const uniqueTahun = [
+            ...new Set(response.data.map((k) => k.tahunAjaran)),
+          ];
+          setTahunAjaranOptions(uniqueTahun.sort().reverse());
+        }
+      } catch (error) {
+        console.error("Failed to fetch tahun ajaran options", error);
+      }
+    };
+    fetchAllTahunAjaran();
+  }, []);
+
+  // Debounce untuk input pencarian
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((searchValue) => {
+        setFilters((prev) => ({ ...prev, page: 1, search: searchValue }));
+      }, 500),
+    []
+  );
+
+  // Efek untuk memanggil API setiap kali filter berubah
+  useEffect(() => {
+    fetchKelas(filters);
+  }, [filters, fetchKelas]);
+
+  useEffect(() => {
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [debouncedSearch]);
+
+  const handleFilterChange = (key, value) => {
+    if (key === "search") {
+      debouncedSearch(value);
+    } else if (key === "isActive") {
+      setFilters((prev) => ({
+        ...prev,
+        page: 1,
+        isActive: value ? "true" : "false",
+      }));
+    } else {
+      setFilters((prev) => ({ ...prev, page: 1, [key]: value }));
+    }
   };
 
-  const calculateStats = (data) => {
-    const total = data.length;
-    const aktif = data.filter((k) => k.isActive).length;
-    const nonaktif = data.filter((k) => !k.isActive).length;
-    const totalSiswa = data.reduce((sum, k) => sum + (k.jumlahSiswa || 0), 0);
-
-    setStats({
-      total,
-      aktif,
-      nonaktif,
-      totalSiswa,
-    });
-  };
-
-  const filterData = () => {
-    let filtered = [...kelas];
-
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter((k) => {
-        const nama = k.nama?.toLowerCase() || "";
-        const jurusan = k.jurusan?.toLowerCase() || "";
-        const waliKelasName = k.waliKelas?.name?.toLowerCase() || "";
-        const waliKelasNip = k.waliKelas?.identifier?.toLowerCase() || "";
-
-        return (
-          nama.includes(searchLower) ||
-          jurusan.includes(searchLower) ||
-          waliKelasName.includes(searchLower) ||
-          waliKelasNip.includes(searchLower)
-        );
-      });
+  const handlePageChange = (newPage) => {
+    if (newPage > 0 && newPage <= pagination.totalPages) {
+      setFilters((prev) => ({ ...prev, page: newPage }));
     }
-
-    if (filterTingkat) {
-      filtered = filtered.filter((k) => k.tingkat === filterTingkat);
-    }
-
-    if (filterTahunAjaran) {
-      filtered = filtered.filter((k) => k.tahunAjaran === filterTahunAjaran);
-    }
-
-    setFilteredKelas(filtered);
   };
 
   const handleDeleteClick = (kelasData) => {
@@ -140,18 +143,17 @@ export default function KelasPage() {
   const handleDeleteSuccess = () => {
     setShowDeleteModal(false);
     setSelectedKelas(null);
-    fetchKelas();
+    fetchKelas(filters);
   };
 
   const handleRestore = async (id) => {
     try {
       const response = await superAdminService.restoreKelas(id);
-
       if (response.success) {
         showToast.success(
           response.message || "Kelas berhasil diaktifkan kembali"
         );
-        fetchKelas();
+        fetchKelas(filters);
       } else {
         showToast.error(response.message || "Gagal mengaktifkan kelas");
       }
@@ -166,11 +168,6 @@ export default function KelasPage() {
 
   const handleView = (kelasData) => {
     router.push(`/super-admin/kelas/${kelasData._id}`);
-  };
-
-  const getTahunAjaranOptions = () => {
-    const uniqueTahunAjaran = [...new Set(kelas.map((k) => k.tahunAjaran))];
-    return uniqueTahunAjaran.sort().reverse();
   };
 
   return (
@@ -191,13 +188,13 @@ export default function KelasPage() {
                 Manajemen Kelas
               </h1>
               <p className="text-neutral-secondary mt-1">
-                Kelola data kelas dan wali kelas
+                Total {pagination.totalDocs} kelas terdaftar
               </p>
             </div>
           </div>
           <div className="flex gap-3">
             <button
-              onClick={fetchKelas}
+              onClick={() => fetchKelas(filters)}
               disabled={isLoading}
               className="px-4 py-2 border border-neutral-border text-neutral-text rounded-lg hover:bg-neutral-surface transition-colors flex items-center gap-2 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
@@ -211,72 +208,8 @@ export default function KelasPage() {
               className="px-6 py-2 bg-gradient-to-br from-[#00a3d4] to-[#005f8b] text-white rounded-lg hover:opacity-90 transition-opacity flex items-center gap-2 font-semibold shadow-md"
             >
               <Plus className="w-5 h-5" />
-              Tambah Kelas Baru
+              Tambah Kelas
             </button>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Stats Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6"
-      >
-        <div className="bg-white rounded-lg shadow-soft p-6 border border-neutral-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-neutral-secondary">Total Kelas</p>
-              <p className="text-3xl font-bold text-neutral-text mt-2">
-                {stats.total}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <GraduationCap className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-soft p-6 border border-neutral-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-neutral-secondary">Kelas Aktif</p>
-              <p className="text-3xl font-bold text-green-600 mt-2">
-                {stats.aktif}
-              </p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <GraduationCap className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-soft p-6 border border-neutral-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-neutral-secondary">Kelas Nonaktif</p>
-              <p className="text-3xl font-bold text-gray-600 mt-2">
-                {stats.nonaktif}
-              </p>
-            </div>
-            <div className="p-3 bg-gray-100 rounded-lg">
-              <Archive className="w-6 h-6 text-gray-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-soft p-6 border border-neutral-border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-neutral-secondary">Total Siswa</p>
-              <p className="text-3xl font-bold text-purple-600 mt-2">
-                {stats.totalSiswa}
-              </p>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <GraduationCap className="w-6 h-6 text-purple-600" />
-            </div>
           </div>
         </div>
       </motion.div>
@@ -285,150 +218,111 @@ export default function KelasPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="bg-white rounded-lg shadow-soft p-6 mb-6 border border-neutral-border"
+        transition={{ delay: 0.1 }}
       >
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Filter className="w-5 h-5 text-neutral-secondary" />
-            <h3 className="text-lg font-semibold text-neutral-text">
-              Filter & Pencarian
-            </h3>
+        <Card className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <Filter className="w-5 h-5 text-neutral-secondary" />
+              <h3 className="text-lg font-semibold text-neutral-text">
+                Filter & Pencarian
+              </h3>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={filters.isActive === "false"}
+                onChange={(e) =>
+                  handleFilterChange("isActive", !e.target.checked)
+                }
+                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <span className="text-sm text-neutral-text">
+                Tampilkan Hanya Nonaktif
+              </span>
+            </label>
           </div>
-
-          {/* Toggle Show Inactive */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-            />
-            <span className="text-sm text-neutral-text">
-              Tampilkan Kelas Nonaktif
-            </span>
-          </label>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-neutral-secondary" />
-            <input
-              type="text"
-              placeholder="Cari kelas, jurusan, atau wali kelas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00a3d4] focus:border-[#00a3d4]"
-            />
-          </div>
-
-          {/* Filter Tingkat */}
-          <select
-            value={filterTingkat}
-            onChange={(e) => setFilterTingkat(e.target.value)}
-            className="px-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00a3d4] focus:border-[#00a3d4] bg-white"
-          >
-            <option value="">Semua Tingkat</option>
-            <option value="X">Kelas X</option>
-            <option value="XI">Kelas XI</option>
-            <option value="XII">Kelas XII</option>
-          </select>
-
-          {/* Filter Tahun Ajaran */}
-          <select
-            value={filterTahunAjaran}
-            onChange={(e) => setFilterTahunAjaran(e.target.value)}
-            className="px-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00a3d4] focus:border-[#00a3d4] bg-white"
-          >
-            <option value="">Semua Tahun Ajaran</option>
-            {getTahunAjaranOptions().map((ta) => (
-              <option key={ta} value={ta}>
-                {ta}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Active Filters Display */}
-        {(searchTerm || filterTingkat || filterTahunAjaran) && (
-          <div className="mt-4 flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-neutral-secondary">
-              Filter aktif:
-            </span>
-            {searchTerm && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
-                Pencarian: {searchTerm}
-                <button
-                  onClick={() => setSearchTerm("")}
-                  className="ml-2 hover:text-blue-900"
-                >
-                  ×
-                </button>
-              </span>
-            )}
-            {filterTingkat && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
-                Tingkat: {filterTingkat}
-                <button
-                  onClick={() => setFilterTingkat("")}
-                  className="ml-2 hover:text-blue-900"
-                >
-                  ×
-                </button>
-              </span>
-            )}
-            {filterTahunAjaran && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800">
-                TA: {filterTahunAjaran}
-                <button
-                  onClick={() => setFilterTahunAjaran("")}
-                  className="ml-2 hover:text-blue-900"
-                >
-                  ×
-                </button>
-              </span>
-            )}
-            <button
-              onClick={() => {
-                setSearchTerm("");
-                setFilterTingkat("");
-                setFilterTahunAjaran("");
-              }}
-              className="text-sm text-red-600 hover:text-red-700"
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-secondary" />
+              <input
+                type="text"
+                placeholder="Cari kelas, jurusan..."
+                className="w-full pl-10 pr-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main"
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+              />
+            </div>
+            <select
+              value={filters.tingkat}
+              onChange={(e) => handleFilterChange("tingkat", e.target.value)}
+              className="px-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main bg-white"
             >
-              Reset semua filter
-            </button>
+              <option value="">Semua Tingkat</option>
+              <option value="X">Kelas X</option>
+              <option value="XI">Kelas XI</option>
+              <option value="XII">Kelas XII</option>
+            </select>
+            <select
+              value={filters.tahunAjaran}
+              onChange={(e) =>
+                handleFilterChange("tahunAjaran", e.target.value)
+              }
+              className="px-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main bg-white"
+            >
+              <option value="">Semua Tahun Ajaran</option>
+              {tahunAjaranOptions.map((ta) => (
+                <option key={ta} value={ta}>
+                  {ta}
+                </option>
+              ))}
+            </select>
           </div>
-        )}
+        </Card>
       </motion.div>
 
-      {/* Results Count */}
-      <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-neutral-secondary">
-          Menampilkan{" "}
-          <span className="font-semibold">{filteredKelas.length}</span> dari{" "}
-          <span className="font-semibold">{stats.total}</span> kelas
-          {showInactive && (
-            <span className="ml-2 text-gray-500">(termasuk nonaktif)</span>
-          )}
-        </p>
-      </div>
-
-      {/* Table */}
+      {/* Table and Pagination */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-        className="bg-white rounded-lg shadow-soft border border-neutral-border"
+        transition={{ delay: 0.2 }}
       >
-        <KelasTable
-          data={filteredKelas}
-          onDelete={handleDeleteClick}
-          onRestore={handleRestore}
-          onView={handleView}
-          isLoading={isLoading}
-        />
+        <Card>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 text-primary-main animate-spin" />
+            </div>
+          ) : kelas.length === 0 ? (
+            <EmptyState
+              icon={
+                <GraduationCap className="w-16 h-16 text-neutral-secondary" />
+              }
+              title="Tidak Ada Data Kelas"
+              description={
+                filters.search || filters.tingkat || filters.tahunAjaran
+                  ? "Tidak ada kelas yang cocok dengan filter Anda."
+                  : "Silakan buat kelas baru untuk memulai."
+              }
+            />
+          ) : (
+            <>
+              <KelasTable
+                data={kelas}
+                onDelete={handleDeleteClick}
+                onRestore={handleRestore}
+                onView={handleView}
+              />
+              {pagination.totalPages > 1 && (
+                <div className="mt-6">
+                  <Pagination
+                    currentPage={pagination.page}
+                    totalPages={pagination.totalPages}
+                    onPageChange={handlePageChange}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </Card>
       </motion.div>
 
       {/* Delete Modal */}

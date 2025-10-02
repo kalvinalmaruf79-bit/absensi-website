@@ -1,8 +1,10 @@
 // src/app/(dashboard)/super-admin/kelas/[id]/page.js
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { motion } from "framer-motion";
+import EmptyState from "@/components/shared/EmptyState";
 import {
   ArrowLeft,
   GraduationCap,
@@ -22,6 +24,23 @@ import {
 import { superAdminService } from "@/services/super-admin.service";
 import { showToast } from "@/lib/toast";
 
+// Helper component for Stat Cards
+const StatCard = ({ icon: Icon, label, value, bgColor, iconColor }) => (
+  <div className="bg-white rounded-lg shadow-soft p-6 border border-neutral-border hover:shadow-lg transition-shadow duration-300">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm text-neutral-secondary mb-1">{label}</p>
+        <p className="text-3xl font-bold text-neutral-text">{value}</p>
+      </div>
+      <div
+        className={`w-14 h-14 rounded-lg ${bgColor} flex items-center justify-center`}
+      >
+        <Icon className={`w-7 h-7 ${iconColor}`} />
+      </div>
+    </div>
+  </div>
+);
+
 export default function DetailKelasPage() {
   const router = useRouter();
   const params = useParams();
@@ -33,13 +52,9 @@ export default function DetailKelasPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    if (kelasId) {
-      fetchKelasDetail();
-    }
-  }, [kelasId]);
+  const fetchKelasDetail = useCallback(async () => {
+    if (!kelasId) return;
 
-  const fetchKelasDetail = async () => {
     try {
       setIsLoading(true);
       const [kelasResponse, statsResponse] = await Promise.all([
@@ -49,22 +64,31 @@ export default function DetailKelasPage() {
 
       if (kelasResponse.success) {
         setKelasData(kelasResponse.data);
+      } else {
+        throw new Error("Gagal memuat data detail kelas.");
       }
+
       if (statsResponse.success) {
         setStatsData(statsResponse);
+      } else {
+        throw new Error("Gagal memuat statistik kelas.");
       }
     } catch (error) {
-      showToast.error("Gagal memuat data kelas");
-      console.error("Error fetching kelas:", error);
+      showToast.error(error.message || "Gagal memuat data.");
+      console.error("Error fetching kelas detail:", error);
       router.push("/super-admin/kelas");
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [kelasId, router]);
+
+  useEffect(() => {
+    fetchKelasDetail();
+  }, [fetchKelasDetail]);
 
   const handleDelete = async () => {
+    setIsDeleting(true);
     try {
-      setIsDeleting(true);
       await superAdminService.deleteKelas(kelasId);
       showToast.success("Kelas berhasil dinonaktifkan");
       router.push("/super-admin/kelas");
@@ -72,15 +96,18 @@ export default function DetailKelasPage() {
       showToast.error(
         error.response?.data?.message || "Gagal menonaktifkan kelas"
       );
+    } finally {
       setIsDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
   if (isLoading) {
     return (
-      <div className="container mx-auto px-6 py-8">
-        <div className="flex items-center justify-center py-12">
-          <Loader2 className="w-8 h-8 text-[#00a3d4] animate-spin" />
+      <div className="flex h-screen items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 text-[#00a3d4] animate-spin" />
+          <p className="text-neutral-secondary">Memuat detail kelas...</p>
         </div>
       </div>
     );
@@ -92,39 +119,33 @@ export default function DetailKelasPage() {
         <div className="text-center py-12">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <p className="text-xl text-gray-700">Kelas tidak ditemukan</p>
+          <button
+            onClick={() => router.push("/super-admin/kelas")}
+            className="mt-4 px-4 py-2 text-white bg-primary-main rounded-lg"
+          >
+            Kembali ke Daftar Kelas
+          </button>
         </div>
       </div>
     );
   }
 
-  const StatCard = ({ icon: Icon, label, value, bgColor, iconColor }) => (
-    <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200 hover:shadow-lg transition-shadow">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">{label}</p>
-          <p className="text-3xl font-bold text-gray-900">{value}</p>
-        </div>
-        <div
-          className={`w-14 h-14 rounded-lg ${bgColor} flex items-center justify-center`}
-        >
-          <Icon className={`w-7 h-7 ${iconColor}`} />
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div className="container mx-auto px-6 py-8">
       {/* Header */}
-      <div className="mb-8">
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-8"
+      >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.push("/super-admin/kelas")}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              onClick={() => router.back()}
+              className="p-2 hover:bg-neutral-surface rounded-lg transition-colors"
               title="Kembali"
             >
-              <ArrowLeft className="w-6 h-6 text-gray-600" />
+              <ArrowLeft className="w-6 h-6 text-neutral-secondary" />
             </button>
             <div className="flex items-center gap-3">
               <div
@@ -138,7 +159,7 @@ export default function DetailKelasPage() {
               </div>
               <div>
                 <div className="flex items-center gap-3">
-                  <h1 className="text-3xl font-bold text-gray-900">
+                  <h1 className="text-3xl font-bold text-neutral-text">
                     {kelasData.nama}
                   </h1>
                   {!kelasData.isActive && (
@@ -148,18 +169,17 @@ export default function DetailKelasPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-gray-600 mt-1">
+                <p className="text-neutral-secondary mt-1">
                   Kelas {kelasData.tingkat} • {kelasData.jurusan} •{" "}
                   {kelasData.tahunAjaran}
                 </p>
               </div>
             </div>
           </div>
-
           <div className="flex gap-3">
             <button
               onClick={() => router.push(`/super-admin/kelas/edit/${kelasId}`)}
-              className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors flex items-center gap-2 font-medium shadow-md"
+              className="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors flex items-center gap-2 font-medium shadow-soft"
             >
               <Pencil className="w-5 h-5" />
               Edit
@@ -167,7 +187,7 @@ export default function DetailKelasPage() {
             {kelasData.isActive && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-medium shadow-md"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2 font-medium shadow-soft"
               >
                 <Trash2 className="w-5 h-5" />
                 Nonaktifkan
@@ -175,52 +195,71 @@ export default function DetailKelasPage() {
             )}
           </div>
         </div>
+      </motion.div>
+
+      {/* Wali Kelas & Statistics */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.1 }}
+          className="lg:col-span-1 bg-white rounded-lg shadow-soft p-6 border border-neutral-border"
+        >
+          <h2 className="text-lg font-semibold text-neutral-text mb-4 flex items-center gap-2">
+            <UserCheck className="w-5 h-5 text-[#00a3d4]" />
+            Wali Kelas
+          </h2>
+          {kelasData.waliKelas ? (
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-100 to-emerald-100 flex items-center justify-center text-green-700 font-bold text-2xl shadow-sm">
+                {kelasData.waliKelas.name?.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="font-semibold text-neutral-text text-lg">
+                  {kelasData.waliKelas.name}
+                </p>
+                <p className="text-sm text-neutral-secondary">
+                  NIP: {kelasData.waliKelas.identifier}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-neutral-secondary italic">
+              <AlertCircle className="w-5 h-5" />
+              <span>Belum ditentukan</span>
+            </div>
+          )}
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-6"
+        >
+          <StatCard
+            icon={Users}
+            label="Jumlah Siswa"
+            value={statsData?.stats?.jumlahSiswa || 0}
+            bgColor="bg-blue-100"
+            iconColor="text-blue-600"
+          />
+          <StatCard
+            icon={Calendar}
+            label="Jadwal Pelajaran"
+            value={statsData?.stats?.jumlahJadwal || 0}
+            bgColor="bg-purple-100"
+            iconColor="text-purple-600"
+          />
+        </motion.div>
       </div>
 
-      {/* Wali Kelas Info */}
-      <div className="bg-white rounded-lg shadow-md p-6 mb-6 border border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <UserCheck className="w-5 h-5 text-[#00a3d4]" />
-          Wali Kelas
-        </h2>
-        {kelasData.waliKelas ? (
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-400 to-green-600 flex items-center justify-center text-white font-bold text-xl shadow-lg">
-              {kelasData.waliKelas.name?.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900 text-lg">
-                {kelasData.waliKelas.name}
-              </p>
-              <p className="text-sm text-gray-600">
-                NIP: {kelasData.waliKelas.identifier}
-              </p>
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-gray-400">
-            <AlertCircle className="w-5 h-5" />
-            <span className="italic">Belum ditentukan</span>
-          </div>
-        )}
-      </div>
-
-      {/* Statistics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
-        <StatCard
-          icon={Users}
-          label="Jumlah Siswa"
-          value={statsData?.stats?.jumlahSiswa || 0}
-          bgColor="bg-blue-100"
-          iconColor="text-blue-600"
-        />
-        <StatCard
-          icon={Calendar}
-          label="Jadwal Pelajaran"
-          value={statsData?.stats?.jumlahJadwal || 0}
-          bgColor="bg-purple-100"
-          iconColor="text-purple-600"
-        />
+      {/* Additional Stats */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6"
+      >
         <StatCard
           icon={CheckSquare}
           label="Total Nilai"
@@ -235,10 +274,6 @@ export default function DetailKelasPage() {
           bgColor="bg-orange-100"
           iconColor="text-orange-600"
         />
-      </div>
-
-      {/* Additional Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <StatCard
           icon={FileText}
           label="Tugas Diberikan"
@@ -253,44 +288,48 @@ export default function DetailKelasPage() {
           bgColor="bg-pink-100"
           iconColor="text-pink-600"
         />
-      </div>
+      </motion.div>
 
       {/* Daftar Siswa */}
-      <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        className="bg-white rounded-lg shadow-soft p-6 border border-neutral-border"
+      >
+        <h2 className="text-lg font-semibold text-neutral-text mb-4 flex items-center gap-2">
           <Users className="w-5 h-5 text-[#00a3d4]" />
           Daftar Siswa ({statsData?.siswa?.length || 0})
         </h2>
-
         {statsData?.siswa && statsData.siswa.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-neutral-surface">
                 <tr>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-text w-16">
                     No
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-text">
                     NISN
                   </th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-neutral-text">
                     Nama Siswa
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-neutral-border">
                 {statsData.siswa.map((siswa, index) => (
                   <tr
                     key={siswa._id}
-                    className="hover:bg-gray-50 transition-colors"
+                    className="hover:bg-neutral-surface transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-neutral-text">
                       {index + 1}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900 font-mono">
+                    <td className="px-4 py-3 text-sm text-neutral-secondary font-mono">
                       {siswa.identifier}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-sm text-neutral-text font-medium">
                       {siswa.name}
                     </td>
                   </tr>
@@ -299,73 +338,36 @@ export default function DetailKelasPage() {
             </table>
           </div>
         ) : (
-          <div className="text-center py-12">
-            <Users className="w-16 h-16 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 text-lg">
-              Belum ada siswa di kelas ini
-            </p>
-            <p className="text-gray-400 text-sm mt-1">
-              Tambahkan siswa melalui menu Manajemen User
-            </p>
-          </div>
+          <EmptyState
+            icon={<Users className="w-16 h-16 text-neutral-subtle" />}
+            title="Belum Ada Siswa"
+            description="Tambahkan siswa ke kelas ini melalui menu Manajemen User."
+          />
         )}
-      </div>
-
-      {/* Recommendation Box */}
-      {statsData?.recommendation && (
-        <div
-          className={`mt-6 rounded-lg p-6 border ${
-            statsData.canSafeDelete
-              ? "bg-green-50 border-green-200"
-              : "bg-yellow-50 border-yellow-200"
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            {statsData.canSafeDelete ? (
-              <CheckSquare className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
-            )}
-            <div>
-              <h3
-                className={`font-semibold mb-2 ${
-                  statsData.canSafeDelete ? "text-green-900" : "text-yellow-900"
-                }`}
-              >
-                Rekomendasi Penghapusan
-              </h3>
-              <p
-                className={`text-sm ${
-                  statsData.canSafeDelete ? "text-green-800" : "text-yellow-800"
-                }`}
-              >
-                {statsData.recommendation}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      </motion.div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => !isDeleting && setShowDeleteConfirm(false)}
         >
-          <div
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
             className="bg-white rounded-xl p-6 max-w-md w-full shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-center w-16 h-16 mx-auto bg-red-100 rounded-full mb-4">
               <Trash2 className="w-8 h-8 text-red-600" />
             </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2 text-center">
+            <h3 className="text-xl font-bold text-neutral-text mb-2 text-center">
               Konfirmasi Nonaktifkan
             </h3>
-            <p className="text-gray-600 mb-6 text-center">
-              Apakah Anda yakin ingin menonaktifkan kelas{" "}
-              <strong>{kelasData.nama}</strong>? Kelas masih dapat dipulihkan
-              kembali jika diperlukan.
+            <p className="text-neutral-secondary mb-6 text-center">
+              Anda yakin ingin menonaktifkan kelas{" "}
+              <strong>{kelasData.nama}</strong>? Kelas ini masih dapat
+              diaktifkan kembali nanti.
             </p>
             <div className="flex justify-end gap-3">
               <button
@@ -387,13 +389,13 @@ export default function DetailKelasPage() {
                   </>
                 ) : (
                   <>
-                    <Trash2 className="w-4 h-4" />
+                    <Archive className="w-4 h-4" />
                     Ya, Nonaktifkan
                   </>
                 )}
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
     </div>
