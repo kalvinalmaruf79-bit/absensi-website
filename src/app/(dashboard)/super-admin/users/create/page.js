@@ -1,46 +1,51 @@
-// src/app/(dashboard)/super-admin/users/create/page.js
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
-import Alert from "@/components/ui/Alert";
 import UserForm from "@/components/super-admin/UserForm";
 import { superAdminService } from "@/services/super-admin.service";
 import { handleApiError } from "@/lib/api-helpers";
+import { showToast } from "@/lib/toast"; // Import showToast
+import { ArrowLeft } from "lucide-react";
 
 export default function CreateUserPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(false);
+  // Hapus state 'error' dan 'success' yang sebelumnya untuk Alert
+  // const [error, setError] = useState(null);
+  // const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (userData, role) => {
     setLoading(true);
-    setError(null);
 
-    try {
-      // Call the appropriate API based on role
-      if (role === "guru") {
-        await superAdminService.createGuru(userData);
-      } else if (role === "siswa") {
-        await superAdminService.createSiswa(userData);
-      }
+    const promise =
+      role === "guru"
+        ? superAdminService.createGuru(userData)
+        : superAdminService.createSiswa(userData);
 
-      setSuccess(true);
-
-      // Redirect to users page after 2 seconds
-      setTimeout(() => {
-        router.push("/super-admin/users");
-      }, 2000);
-    } catch (err) {
-      console.error("Error creating user:", err);
-      const errorData = handleApiError(err);
-      setError(errorData.message);
-    } finally {
-      setLoading(false);
-    }
+    // Gunakan showToast.promise untuk menangani semua state
+    showToast
+      .promise(promise, {
+        pending: `Membuat user ${role} baru...`,
+        success: `User ${role} berhasil dibuat! Mengalihkan...`,
+        error: ({ data }) => {
+          // 'data' berisi objek error dari promise yang gagal
+          const errorData = handleApiError(data);
+          return errorData.message || "Gagal membuat user";
+        },
+      })
+      .then(() => {
+        // Jika berhasil, tunggu sebentar agar user bisa membaca toast
+        setTimeout(() => {
+          router.push("/super-admin/users");
+        }, 1500);
+      })
+      .catch(() => {
+        // Jika gagal, toast sudah ditampilkan. Cukup re-enable tombol.
+        setLoading(false);
+      });
   };
 
   const handleCancel = () => {
@@ -70,21 +75,7 @@ export default function CreateUserPage() {
             variant="ghost"
             size="sm"
             onClick={handleCancel}
-            icon={
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            }
+            icon={<ArrowLeft className="w-5 h-5" />}
           >
             Kembali
           </Button>
@@ -96,30 +87,6 @@ export default function CreateUserPage() {
           Buat akun baru untuk guru atau siswa
         </p>
       </motion.div>
-
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <Alert type="error" onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        </motion.div>
-      )}
-
-      {success && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <Alert type="success">
-            User berhasil dibuat! Mengalihkan ke halaman users...
-          </Alert>
-        </motion.div>
-      )}
 
       <motion.div variants={itemVariants}>
         <Card className="max-w-3xl">
@@ -157,7 +124,7 @@ export default function CreateUserPage() {
               <ul className="text-sm text-blue-800 space-y-1">
                 <li>• Pilih role terlebih dahulu (Guru atau Siswa)</li>
                 <li>• Isi semua informasi yang diperlukan</li>
-                <li>• Password akan di-generate otomatis jika tidak diisi</li>
+                <li>• Password akan di-generate otomatis sesuai NIP/NISN</li>
                 <li>• Untuk siswa, pilih kelas yang sesuai</li>
               </ul>
             </div>

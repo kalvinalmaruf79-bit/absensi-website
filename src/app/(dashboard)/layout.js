@@ -1,10 +1,12 @@
-// src\app\(dashboard)\layout.js
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Sidebar from "@/components/layout/Sidebar";
 import Header from "@/components/layout/Header";
+// 1. Import ToastContainer dan CSS-nya
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function DashboardLayout({ children }) {
   const { user, loading } = useAuth();
@@ -40,6 +42,9 @@ export default function DashboardLayout({ children }) {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: "#f5faff" }}>
+      {/* 2. Tempatkan ToastContainer di sini */}
+      <ToastContainer />
+
       <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
       <div
         className="flex flex-col transition-all duration-300 ease-out"

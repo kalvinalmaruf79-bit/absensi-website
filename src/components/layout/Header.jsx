@@ -1,33 +1,21 @@
-// ==========================================
-// FILE 8: src/components/layout/Header.jsx
-// ==========================================
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import {
-  Bell,
-  Search,
-  User,
-  LogOut,
-  Settings,
-  ChevronDown,
-} from "lucide-react";
+import { LogOut, ChevronDown } from "lucide-react";
 
 export default function Header() {
   const { user, logout } = useAuth();
+  const router = useRouter();
+
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const dropdownRef = useRef(null);
-  const notifRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
-      }
-      if (notifRef.current && !notifRef.current.contains(event.target)) {
-        setShowNotifications(false);
       }
     };
 
@@ -35,114 +23,88 @@ export default function Header() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Format role display
+  const getRoleDisplay = (role) => {
+    if (role === "super_admin" || role === "super-admin") return "Super Admin";
+    if (role === "guru") return "Guru";
+    if (role === "siswa") return "Siswa";
+    return role;
+  };
+
   return (
-    <header className="sticky top-0 z-30 bg-white/90 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-gray-200 shadow-sm">
       <div className="flex items-center justify-between px-6 py-4">
-        <div className="flex-1 max-w-xl">
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-              size={20}
-            />
-            <input
-              type="text"
-              placeholder="Cari sesuatu..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#00a3d4] focus:border-transparent transition-all"
-            />
-          </div>
+        {/* Left Side - Greeting */}
+        <div className="flex-1">
+          <h2 className="text-lg font-semibold text-gray-800">
+            Selamat Datang, <span className="text-[#00a3d4]">{user?.name}</span>
+          </h2>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {new Date().toLocaleDateString("id-ID", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </p>
         </div>
 
-        <div className="flex items-center gap-4 ml-4">
-          <div className="relative" ref={notifRef}>
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#00a3d4]/30 focus:ring-offset-1"
-              aria-haspopup="dialog"
-              aria-expanded={showNotifications}
-              aria-label="Buka notifikasi"
-            >
-              <Bell size={20} className="text-gray-600" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
-
-            {showNotifications && (
-              <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-200">
-                  <h3 className="font-semibold text-gray-900">Notifikasi</h3>
-                </div>
-                <div className="max-h-96 overflow-y-auto">
-                  {[1, 2, 3].map((item) => (
-                    <div
-                      key={item}
-                      className="p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
-                    >
-                      <p className="text-sm font-medium text-gray-900">
-                        Pengumuman Baru
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Ada pengumuman penting untuk Anda
-                      </p>
-                      <p className="text-xs text-gray-400 mt-2">
-                        2 jam yang lalu
-                      </p>
-                    </div>
-                  ))}
-                </div>
-                <div className="p-3 text-center border-t border-gray-200">
-                  <button
-                    className="text-sm font-medium hover:underline"
-                    style={{ color: "#00a3d4" }}
-                  >
-                    Lihat Semua Notifikasi
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
+        {/* Right Side - User Menu */}
+        <div className="flex items-center">
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-[#00a3d4]/30 focus:ring-offset-1"
-              aria-haspopup="menu"
-              aria-expanded={showDropdown}
-              aria-label="Buka menu pengguna"
+              className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-100 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#00a3d4]/30 focus:ring-offset-2 group"
+              aria-label="Menu pengguna"
             >
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white font-semibold text-sm ring-2 ring-[#00a3d4]/30"
-                style={{ backgroundColor: "#00a3d4" }}
-              >
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#00a3d4] to-[#00b2e2] flex items-center justify-center text-white font-semibold text-sm shadow-md ring-2 ring-[#00a3d4]/20 group-hover:ring-[#00a3d4]/40 transition-all">
                 {user?.name?.charAt(0).toUpperCase()}
               </div>
               <div className="text-left hidden md:block">
-                <p className="text-sm font-medium text-gray-900">
+                <p className="text-sm font-semibold text-gray-900">
                   {user?.name}
                 </p>
-                <p className="text-xs text-gray-500 capitalize">{user?.role}</p>
+                <p className="text-xs text-gray-500">
+                  {getRoleDisplay(user?.role)}
+                </p>
               </div>
-              <ChevronDown size={16} className="text-gray-400" />
+              <ChevronDown
+                size={16}
+                className={`text-gray-400 transition-transform duration-200 ${
+                  showDropdown ? "rotate-180" : ""
+                }`}
+              />
             </button>
 
             {showDropdown && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden">
-                <div className="p-4 border-b border-gray-200">
-                  <p className="font-medium text-gray-900">{user?.name}</p>
-                  <p className="text-sm text-gray-500">{user?.email}</p>
+              <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                {/* User Info */}
+                <div className="p-4 bg-gradient-to-r from-[#00a3d4]/5 to-[#00b2e2]/5 border-b border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#00a3d4] to-[#00b2e2] flex items-center justify-center text-white font-bold text-lg shadow-md">
+                      {user?.name?.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900 truncate">
+                        {user?.name}
+                      </p>
+                      <p className="text-sm text-gray-500 truncate">
+                        {user?.email}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-3 px-3 py-1.5 bg-white/80 rounded-lg inline-block">
+                    <p className="text-xs font-medium text-[#00a3d4]">
+                      {getRoleDisplay(user?.role)}
+                    </p>
+                  </div>
                 </div>
-                <div className="py-2">
-                  <button className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors">
-                    <User size={18} />
-                    <span className="text-sm">Profil Saya</span>
-                  </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors">
-                    <Settings size={18} />
-                    <span className="text-sm">Pengaturan</span>
-                  </button>
-                </div>
-                <div className="border-t border-gray-200 py-2">
+
+                {/* Logout */}
+                <div className="p-2">
                   <button
                     onClick={logout}
-                    className="w-full flex items-center gap-3 px-4 py-2 text-red-600 hover:bg-red-50 transition-colors"
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition-all font-medium"
                   >
                     <LogOut size={18} />
                     <span className="text-sm">Keluar</span>

@@ -7,13 +7,14 @@ import { motion } from "framer-motion";
 import debounce from "lodash.debounce";
 import { superAdminService } from "@/services/super-admin.service";
 import { handleApiError } from "@/lib/api-helpers";
-import { showToast } from "@/lib/toast"; // 1. Impor toast utility
+import { showToast } from "@/lib/toast";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Alert from "@/components/ui/Alert";
 import UserTable from "@/components/super-admin/UserTable";
 import Pagination from "@/components/shared/Pagination";
 import ImportUserModal from "@/components/super-admin/ImportUserModal";
+import DeleteUserModal from "@/components/super-admin/DeleteUserModal";
 import { Users, Upload, Plus, Search, Loader2 } from "lucide-react";
 
 export default function UsersPage() {
@@ -21,11 +22,10 @@ export default function UsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  // State success tidak lagi diperlukan karena kita akan menggunakan toast
-  // const [success, setSuccess] = useState(null);
 
   const [filters, setFilters] = useState({
     role: "",
+    isActive: "all", // Changed to "all" as default
     search: "",
     page: 1,
     limit: 10,
@@ -37,13 +37,21 @@ export default function UsersPage() {
   });
 
   const [showImportModal, setShowImportModal] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleteModalUser, setDeleteModalUser] = useState(null);
 
   const fetchUsers = useCallback(async (currentFilters) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await superAdminService.getAllUsers(currentFilters);
+      // Prepare filters for API
+      const apiFilters = { ...currentFilters };
+
+      // Handle "all" option - don't send isActive parameter
+      if (apiFilters.isActive === "all") {
+        delete apiFilters.isActive;
+      }
+
+      const response = await superAdminService.getAllUsers(apiFilters);
       setUsers(response.docs || []);
       setPagination({
         totalPages: response.totalPages || 1,
@@ -81,25 +89,25 @@ export default function UsersPage() {
     router.push(`/super-admin/users/${user._id}`);
   };
 
-  const handleDelete = async (user) => {
-    if (deleteConfirm && deleteConfirm._id !== user._id) {
-      setDeleteConfirm(user);
-      return;
-    }
+  const handleDeleteClick = (user) => {
+    setDeleteModalUser(user);
+  };
 
-    if (!deleteConfirm) {
-      setDeleteConfirm(user);
-      return;
-    }
+  const handleDeleteSuccess = () => {
+    setDeleteModalUser(null);
+    fetchUsers(filters);
+  };
 
+  const handleRestore = async (user) => {
     try {
-      await superAdminService.deleteUser(user._id);
-      showToast.success(`User ${user.name} berhasil dinonaktifkan`);
-      setDeleteConfirm(null);
-      fetchUsers(filters);
+      const response = await superAdminService.restoreUser(user._id);
+      if (response.success) {
+        showToast.success(`User ${user.name} berhasil diaktifkan kembali`);
+        fetchUsers(filters);
+      }
     } catch (err) {
       const errorData = handleApiError(err);
-      showToast.error(errorData.message || "Gagal menghapus user");
+      showToast.error(errorData.message || "Gagal mengaktifkan user");
     }
   };
 
@@ -108,7 +116,6 @@ export default function UsersPage() {
       const response = await superAdminService.importUsers(file);
       const { berhasil, gagal, warnings } = response.report;
 
-      // Tampilkan hasil import
       if (berhasil > 0) {
         showToast.success(`Berhasil mengimpor ${berhasil} user baru.`, {
           duration: 5000,
@@ -131,12 +138,10 @@ export default function UsersPage() {
         console.error("Import Errors:", response.report.errors);
       }
 
-      // Jika semua berhasil, tutup modal
       if (gagal === 0) {
         setShowImportModal(false);
       }
 
-      // Refresh data
       setFilters((prev) => ({ ...prev, page: 1 }));
     } catch (err) {
       const errorData = handleApiError(err);
@@ -201,7 +206,7 @@ export default function UsersPage() {
         </div>
       </motion.div>
 
-      {/* Alerts */}
+      {/* Error Alert */}
       {error && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -210,40 +215,6 @@ export default function UsersPage() {
         >
           <Alert type="error" onClose={() => setError(null)}>
             {error}
-          </Alert>
-        </motion.div>
-      )}
-
-      {/* Delete Confirmation */}
-      {deleteConfirm && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <Alert type="warning">
-            <div className="flex items-center justify-between">
-              <span>
-                Yakin ingin menonaktifkan user{" "}
-                <strong>{deleteConfirm.name}</strong>?
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => setDeleteConfirm(null)}
-                >
-                  Batal
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  onClick={() => handleDelete(deleteConfirm)}
-                >
-                  Ya, Nonaktifkan
-                </Button>
-              </div>
-            </div>
           </Alert>
         </motion.div>
       )}
@@ -277,6 +248,15 @@ export default function UsersPage() {
               </select>
               <select
                 className="px-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main bg-white"
+                value={filters.isActive}
+                onChange={(e) => handleFilterChange("isActive", e.target.value)}
+              >
+                <option value="all">Semua Status</option>
+                <option value="true">Aktif Saja</option>
+                <option value="false">Nonaktif Saja</option>
+              </select>
+              <select
+                className="px-4 py-2 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-main bg-white"
                 value={filters.limit}
                 onChange={(e) =>
                   handleFilterChange("limit", parseInt(e.target.value))
@@ -306,7 +286,7 @@ export default function UsersPage() {
             <div className="text-center py-12">
               <Users className="w-16 h-16 text-neutral-secondary mx-auto mb-4" />
               <p className="text-neutral-secondary text-lg">
-                {filters.search || filters.role
+                {filters.search || filters.role || filters.isActive !== "all"
                   ? "Tidak ada user yang sesuai dengan filter"
                   : "Belum ada data user"}
               </p>
@@ -316,7 +296,8 @@ export default function UsersPage() {
               <UserTable
                 users={users}
                 onEdit={handleEdit}
-                onDelete={handleDelete}
+                onDelete={handleDeleteClick}
+                onRestore={handleRestore}
               />
               {pagination.totalPages > 1 && (
                 <div className="mt-6">
@@ -332,11 +313,18 @@ export default function UsersPage() {
         </Card>
       </motion.div>
 
-      {/* Import Modal */}
+      {/* Modals */}
       <ImportUserModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
         onImport={handleImport}
+      />
+
+      <DeleteUserModal
+        user={deleteModalUser}
+        isOpen={!!deleteModalUser}
+        onClose={() => setDeleteModalUser(null)}
+        onSuccess={handleDeleteSuccess}
       />
     </div>
   );
