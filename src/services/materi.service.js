@@ -1,5 +1,4 @@
-// 8. src/services/materi.service.js
-// ============================================
+// src/services/materi.service.js
 import axiosInstance from "@/lib/axios-instance";
 
 export const materiService = {
@@ -30,16 +29,32 @@ export const materiService = {
   },
 
   /**
+   * Get Materi By ID
+   * Params: id (materi ID)
+   */
+  getMateriById: async (id) => {
+    const response = await axiosInstance.get(`/materi/${id}`);
+    return response.data;
+  },
+
+  /**
    * Update Materi (Guru)
    * Params: id (materi ID)
-   * Body: {
-   *   judul?: string,
-   *   deskripsi?: string,
-   *   isPublished?: boolean
-   * }
+   * Body: FormData or regular object with:
+   *   - judul?: string
+   *   - deskripsi?: string
+   *   - isPublished?: boolean
+   *   - files?: File[] (optional)
+   *   - links?: JSON string array
    */
   updateMateri: async (id, data) => {
-    const response = await axiosInstance.put(`/materi/${id}`, data);
+    const headers = {};
+    if (data instanceof FormData) {
+      headers["Content-Type"] = "multipart/form-data";
+    }
+    const response = await axiosInstance.put(`/materi/${id}`, data, {
+      headers,
+    });
     return response.data;
   },
 
@@ -58,6 +73,17 @@ export const materiService = {
    */
   togglePublishMateri: async (id) => {
     const response = await axiosInstance.patch(`/materi/${id}/toggle-publish`);
+    return response.data;
+  },
+
+  /**
+   * Delete File from Materi (Guru)
+   * Params: id (materi ID), publicId (file public_id)
+   */
+  deleteMateriFile: async (id, publicId) => {
+    const response = await axiosInstance.delete(
+      `/materi/${id}/file/${publicId}`
+    );
     return response.data;
   },
 };

@@ -1,5 +1,4 @@
-// 4. src/services/guru.service.js
-// ============================================
+// src/services/guru.service.js
 import axiosInstance from "@/lib/axios-instance";
 
 export const guruService = {
@@ -12,7 +11,16 @@ export const guruService = {
   },
 
   /**
-   * Get Jadwal Guru
+   * Get Jadwal Guru - Semua jadwal per hari
+   * Returns: { senin: [], selasa: [], ... }
+   */
+  getJadwalGuru: async () => {
+    const response = await axiosInstance.get("/guru/jadwal");
+    return response.data;
+  },
+
+  /**
+   * Get Jadwal Guru dengan Filter
    * Query: ?hari=senin&tahunAjaran=2024/2025&semester=ganjil
    */
   getJadwal: async (params) => {
@@ -23,22 +31,34 @@ export const guruService = {
   /**
    * Get Siswa by Kelas
    * Params: kelasId (kelas ID)
+   * Query: ?page=1&limit=100&search=nama
    */
-  getSiswaKelas: async (kelasId) => {
-    const response = await axiosInstance.get(`/guru/kelas/${kelasId}/siswa`);
+  getSiswaKelas: async (kelasId, params) => {
+    const response = await axiosInstance.get(`/guru/kelas/${kelasId}/siswa`, {
+      params,
+    });
     return response.data;
   },
 
   /**
    * Get Rekap Nilai Kelas
    * Params: kelasId (kelas ID)
-   * Query: ?mataPelajaranId=xxx&semester=ganjil&tahunAjaran=2024/2025
+   * Query: ?mataPelajaranId=xxx&semester=ganjil&tahunAjaran=2024/2025&export=true
    */
   getRekapNilaiKelas: async (kelasId, params) => {
     const response = await axiosInstance.get(
       `/guru/kelas/${kelasId}/rekap-nilai`,
       { params }
     );
+    return response.data;
+  },
+
+  /**
+   * Get Absensi by Sesi
+   * Query: ?kelasId=xxx&mataPelajaranId=xxx&tanggal=2024-01-01
+   */
+  getAbsensiBySesi: async (params) => {
+    const response = await axiosInstance.get("/guru/absensi/sesi", { params });
     return response.data;
   },
 
@@ -82,7 +102,7 @@ export const guruService = {
 
   /**
    * Get Nilai Siswa
-   * Query: ?kelasId=xxx&mataPelajaranId=xxx&semester=ganjil&tahunAjaran=2024/2025
+   * Query: ?kelasId=xxx&mataPelajaranId=xxx&semester=ganjil&tahunAjaran=2024/2025&page=1&limit=10
    */
   getNilaiSiswa: async (params) => {
     const response = await axiosInstance.get("/guru/nilai", { params });
@@ -92,12 +112,9 @@ export const guruService = {
   /**
    * Get Detail Nilai Siswa
    * Params: siswaId (siswa ID)
-   * Query: ?mataPelajaranId=xxx&semester=ganjil&tahunAjaran=2024/2025
    */
-  getDetailNilaiSiswa: async (siswaId, params) => {
-    const response = await axiosInstance.get(`/guru/nilai/siswa/${siswaId}`, {
-      params,
-    });
+  getDetailNilaiSiswa: async (siswaId) => {
+    const response = await axiosInstance.get(`/guru/nilai/siswa/${siswaId}`);
     return response.data;
   },
 
@@ -113,8 +130,21 @@ export const guruService = {
   },
 
   /**
+   * Get Histori Aktivitas Siswa
+   * Params: siswaId (siswa ID)
+   * Query: ?page=1&limit=15
+   */
+  getHistoriAktivitasSiswa: async (siswaId, params) => {
+    const response = await axiosInstance.get(
+      `/guru/siswa/${siswaId}/histori-aktivitas`,
+      { params }
+    );
+    return response.data;
+  },
+
+  /**
    * Export Nilai
-   * Query: ?kelasId=xxx&mataPelajaranId=xxx&semester=ganjil&tahunAjaran=2024/2025&format=excel|pdf
+   * Query: ?kelasId=xxx&mataPelajaranId=xxx&semester=ganjil&tahunAjaran=2024/2025
    */
   exportNilai: async (params) => {
     const response = await axiosInstance.get("/guru/nilai/export", {
@@ -124,7 +154,7 @@ export const guruService = {
     return response.data;
   },
 
-  // === WALI KELAS FUNCTIONS ===
+  // ============= WALI KELAS FUNCTIONS =============
 
   /**
    * Get Siswa Perwalian (Wali Kelas)
@@ -136,7 +166,7 @@ export const guruService = {
 
   /**
    * Get Pengajuan Absensi (Wali Kelas)
-   * Query: ?status=pending|disetujui|ditolak
+   * Query: ?status=pending|disetujui|ditolak&page=1&limit=10
    */
   getPengajuanAbsensi: async (params) => {
     const response = await axiosInstance.get(
