@@ -1,5 +1,4 @@
-// 9. src/services/tugas.service.js
-// ============================================
+// src/services/tugas.service.js
 import axiosInstance from "@/lib/axios-instance";
 
 export const tugasService = {
@@ -22,10 +21,46 @@ export const tugasService = {
 
   /**
    * Get Tugas by Kelas
-   * Query: ?kelasId=xxx&mataPelajaranId=xxx&status=active|completed
+   * Query: ?kelasId=xxx&mataPelajaranId=xxx
    */
   getTugasByKelas: async (params) => {
     const response = await axiosInstance.get("/tugas", { params });
+    return response.data;
+  },
+
+  /**
+   * Get Single Tugas by ID
+   * Params: id (tugas ID)
+   */
+  getTugasById: async (id) => {
+    const response = await axiosInstance.get(`/tugas/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Update Tugas (Guru)
+   * Params: id (tugas ID)
+   * Body: {
+   *   judul?: string,
+   *   deskripsi?: string,
+   *   mataPelajaran?: string (ID),
+   *   kelas?: string (ID),
+   *   deadline?: string (ISO date),
+   *   semester?: 'ganjil'|'genap',
+   *   tahunAjaran?: string
+   * }
+   */
+  updateTugas: async (id, data) => {
+    const response = await axiosInstance.put(`/tugas/${id}`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete Tugas (Guru)
+   * Params: id (tugas ID)
+   */
+  deleteTugas: async (id) => {
+    const response = await axiosInstance.delete(`/tugas/${id}`);
     return response.data;
   },
 
