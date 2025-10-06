@@ -18,6 +18,8 @@ import {
   X,
   Save,
   AlertCircle,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
@@ -91,7 +93,163 @@ const studentItemVariants = {
     },
   }),
 };
+// Komponen Modal untuk Input Nilai Single
+const SingleInputModal = ({
+  show,
+  onClose,
+  siswa,
+  selectedJenis,
+  semester,
+  tahunAjaran,
+  onSubmit,
+}) => {
+  const [nilai, setNilai] = useState("");
+  const [deskripsi, setDeskripsi] = useState("");
 
+  useEffect(() => {
+    if (show) {
+      setNilai("");
+      setDeskripsi("");
+    }
+  }, [show]);
+
+  const handleSubmit = () => {
+    if (!nilai || isNaN(parseFloat(nilai))) {
+      showToast.error("Nilai harus diisi dengan angka");
+      return;
+    }
+
+    if (parseFloat(nilai) < 0 || parseFloat(nilai) > 100) {
+      showToast.error("Nilai harus antara 0-100");
+      return;
+    }
+
+    onSubmit({
+      siswaId: siswa._id,
+      nilai: parseFloat(nilai),
+      deskripsi,
+    });
+  };
+
+  const jenisPenilaianOptions = [
+    { value: "tugas", label: "Tugas" },
+    { value: "harian", label: "Harian" },
+    { value: "uts", label: "UTS" },
+    { value: "uas", label: "UAS" },
+    { value: "praktik", label: "Praktik" },
+  ];
+
+  const jenisLabel =
+    jenisPenilaianOptions.find((j) => j.value === selectedJenis)?.label ||
+    selectedJenis;
+
+  if (!show) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        variants={overlayVariants}
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        onClick={onClose}
+      >
+        <motion.div
+          variants={modalVariants}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden"
+        >
+          {/* Modal Header */}
+          <div className="px-6 py-4 border-b border-neutral-border flex items-center justify-between bg-gradient-to-r from-primary/5 to-primary/10">
+            <div>
+              <h3 className="text-xl font-bold text-neutral-text">
+                Input Nilai Siswa
+              </h3>
+              <p className="text-sm text-neutral-secondary mt-1">
+                {jenisLabel} • {semester} • {tahunAjaran}
+              </p>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg bg-neutral-light/20 hover:bg-neutral-light/30 flex items-center justify-center transition-colors"
+            >
+              <X className="w-5 h-5 text-neutral-secondary" />
+            </motion.button>
+          </div>
+
+          {/* Modal Body */}
+          <div className="px-6 py-6 space-y-4">
+            {/* Info Siswa */}
+            <div className="p-4 bg-neutral-light/10 rounded-lg">
+              <p className="font-medium text-neutral-text">{siswa.name}</p>
+              <p className="text-sm text-neutral-secondary">
+                NIS: {siswa.identifier}
+              </p>
+            </div>
+
+            {/* Input Nilai */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-text mb-2">
+                Nilai <span className="text-danger">*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                placeholder="Masukkan nilai (0-100)"
+                value={nilai}
+                onChange={(e) => setNilai(e.target.value)}
+                className="w-full px-4 py-2.5 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+                autoFocus
+              />
+            </div>
+
+            {/* Input Deskripsi */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-text mb-2">
+                Deskripsi (Opsional)
+              </label>
+              <textarea
+                placeholder="Catatan tambahan..."
+                value={deskripsi}
+                onChange={(e) => setDeskripsi(e.target.value)}
+                rows={3}
+                className="w-full px-4 py-2.5 border border-neutral-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all resize-none"
+              />
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="px-6 py-4 border-t border-neutral-border flex items-center justify-end gap-3 bg-neutral-light/5">
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={onClose}
+              className="px-6 py-2.5 bg-neutral-light/20 text-neutral-text rounded-lg font-medium hover:bg-neutral-light/30 transition-colors"
+            >
+              Batal
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleSubmit}
+              className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition-colors"
+            >
+              <Save className="w-4 h-4" />
+              Simpan
+            </motion.button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
 // Komponen Modal untuk Input Nilai Massal
 const BulkInputModal = ({
   show,
@@ -313,7 +471,11 @@ export default function ManajemenNilaiPage() {
   const [showBulkInput, setShowBulkInput] = useState(false);
   const [siswaList, setSiswaList] = useState([]);
   const [nilaiHistory, setNilaiHistory] = useState([]);
-
+  const [editingNilaiId, setEditingNilaiId] = useState(null);
+  const [editNilai, setEditNilai] = useState("");
+  const [editDeskripsi, setEditDeskripsi] = useState("");
+  const [showSingleInput, setShowSingleInput] = useState(false);
+  const [selectedSiswa, setSelectedSiswa] = useState(null);
   const [stats, setStats] = useState({
     totalNilaiTerinput: 0,
     rataRataKelas: 0,
@@ -376,6 +538,7 @@ export default function ManajemenNilaiPage() {
       const response = await guruService.getNilaiSiswa({
         kelasId: selectedKelas,
         mataPelajaranId: selectedMapel,
+        jenisPenilaian: selectedJenis, // Tambahkan filter jenis
         semester,
         tahunAjaran,
         limit: 50,
@@ -395,12 +558,65 @@ export default function ManajemenNilaiPage() {
           rataRataKelas: avg.toFixed(2),
           siswaTuntas: tuntas,
         });
+      } else {
+        setStats({
+          totalNilaiTerinput: 0,
+          rataRataKelas: 0,
+          siswaTuntas: 0,
+        });
       }
     } catch (error) {
       console.error("Error fetching nilai:", error);
     }
   };
+  const handleSingleSubmit = async (data) => {
+    try {
+      await guruService.inputNilai({
+        siswaId: data.siswaId,
+        kelasId: selectedKelas,
+        mataPelajaranId: selectedMapel,
+        jenisPenilaian: selectedJenis,
+        nilai: data.nilai,
+        deskripsi: data.deskripsi,
+        semester,
+        tahunAjaran,
+      });
 
+      showToast.success("Nilai berhasil disimpan!");
+      setShowSingleInput(false);
+      setSelectedSiswa(null);
+      fetchNilaiHistory();
+    } catch (error) {
+      console.error("Error submitting nilai:", error);
+      showToast.error("Gagal menyimpan nilai. Silakan coba lagi.");
+    }
+  };
+  const handleUpdateNilai = async (nilaiId, newNilai, newDeskripsi) => {
+    try {
+      await guruService.updateNilai(nilaiId, {
+        nilai: newNilai,
+        deskripsi: newDeskripsi,
+      });
+      showToast.success("Nilai berhasil diperbarui!");
+      fetchNilaiHistory();
+    } catch (error) {
+      console.error("Error updating nilai:", error);
+      showToast.error("Gagal memperbarui nilai");
+    }
+  };
+
+  const handleDeleteNilai = async (nilaiId) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus nilai ini?")) return;
+
+    try {
+      await guruService.deleteNilai(nilaiId);
+      showToast.success("Nilai berhasil dihapus!");
+      fetchNilaiHistory();
+    } catch (error) {
+      console.error("Error deleting nilai:", error);
+      showToast.error("Gagal menghapus nilai");
+    }
+  };
   const handleBulkSubmit = async (nilaiSiswa) => {
     try {
       await guruService.inputNilaiMassal({
@@ -838,6 +1054,9 @@ export default function ManajemenNilaiPage() {
                         <th className="text-center py-3 px-4 text-sm font-semibold text-neutral-text">
                           Status
                         </th>
+                        <th className="text-center py-3 px-4 text-sm font-semibold text-neutral-text">
+                          Aksi
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
@@ -860,25 +1079,48 @@ export default function ManajemenNilaiPage() {
                             {nilai.siswa?.identifier || "-"}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <motion.span
-                              initial={{ scale: 0 }}
-                              animate={{ scale: 1 }}
-                              transition={{
-                                delay: index * 0.05 + 0.1,
-                                type: "spring",
-                                stiffness: 300,
-                              }}
-                              className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
-                                nilai.nilai >= 75
-                                  ? "bg-success/10 text-success"
-                                  : "bg-danger/10 text-danger"
-                              }`}
-                            >
-                              {nilai.nilai}
-                            </motion.span>
+                            {editingNilaiId === nilai._id ? (
+                              <input
+                                type="number"
+                                min="0"
+                                max="100"
+                                value={editNilai}
+                                onChange={(e) => setEditNilai(e.target.value)}
+                                className="w-16 px-2 py-1 border border-primary rounded text-center focus:outline-none focus:ring-2 focus:ring-primary"
+                              />
+                            ) : (
+                              <motion.span
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{
+                                  delay: index * 0.05 + 0.1,
+                                  type: "spring",
+                                  stiffness: 300,
+                                }}
+                                className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                                  nilai.nilai >= 75
+                                    ? "bg-success/10 text-success"
+                                    : "bg-danger/10 text-danger"
+                                }`}
+                              >
+                                {nilai.nilai}
+                              </motion.span>
+                            )}
                           </td>
                           <td className="py-3 px-4 text-sm text-neutral-secondary">
-                            {nilai.deskripsi || "-"}
+                            {editingNilaiId === nilai._id ? (
+                              <input
+                                type="text"
+                                value={editDeskripsi}
+                                onChange={(e) =>
+                                  setEditDeskripsi(e.target.value)
+                                }
+                                className="w-full px-2 py-1 border border-primary rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                                placeholder="Deskripsi"
+                              />
+                            ) : (
+                              nilai.deskripsi || "-"
+                            )}
                           </td>
                           <td className="py-3 px-4 text-center">
                             <motion.span
@@ -898,6 +1140,64 @@ export default function ManajemenNilaiPage() {
                               {nilai.nilai >= 75 ? "Tuntas" : "Belum Tuntas"}
                             </motion.span>
                           </td>
+                          <td className="py-3 px-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              {editingNilaiId === nilai._id ? (
+                                <>
+                                  <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => {
+                                      handleUpdateNilai(
+                                        nilai._id,
+                                        editNilai,
+                                        editDeskripsi
+                                      );
+                                      setEditingNilaiId(null);
+                                    }}
+                                    className="p-1.5 bg-success/10 text-success rounded-lg hover:bg-success/20 transition-colors"
+                                    title="Simpan"
+                                  >
+                                    <Save className="w-4 h-4" />
+                                  </motion.button>
+                                  <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => setEditingNilaiId(null)}
+                                    className="p-1.5 bg-neutral-light/20 text-neutral-secondary rounded-lg hover:bg-neutral-light/30 transition-colors"
+                                    title="Batal"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </motion.button>
+                                </>
+                              ) : (
+                                <>
+                                  <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => {
+                                      setEditingNilaiId(nilai._id);
+                                      setEditNilai(nilai.nilai);
+                                      setEditDeskripsi(nilai.deskripsi || "");
+                                    }}
+                                    className="p-1.5 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                                    title="Edit"
+                                  >
+                                    <Edit2 className="w-4 h-4" />
+                                  </motion.button>
+                                  <motion.button
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => handleDeleteNilai(nilai._id)}
+                                    className="p-1.5 bg-danger/10 text-danger rounded-lg hover:bg-danger/20 transition-colors"
+                                    title="Hapus"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </motion.button>
+                                </>
+                              )}
+                            </div>
+                          </td>
                         </motion.tr>
                       ))}
                     </tbody>
@@ -908,7 +1208,84 @@ export default function ManajemenNilaiPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* Daftar Siswa yang Belum Ada Nilai */}
+      {selectedKelas && selectedMapel && selectedJenis && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1 }}
+          className="mb-6"
+        >
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-neutral-text">
+                Siswa yang Belum Ada Nilai
+              </h2>
+            </div>
 
+            {(() => {
+              const siswaYangSudahAda = new Set(
+                nilaiHistory.map((n) => n.siswa?._id)
+              );
+              const siswaBelumAda = siswaList.filter(
+                (s) => !siswaYangSudahAda.has(s._id)
+              );
+
+              if (siswaBelumAda.length === 0) {
+                return (
+                  <div className="text-center py-8">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: "spring", stiffness: 200 }}
+                    >
+                      <Users className="w-12 h-12 mx-auto mb-3 text-success" />
+                    </motion.div>
+                    <p className="text-neutral-secondary">
+                      Semua siswa sudah memiliki nilai
+                    </p>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-2">
+                  {siswaBelumAda.map((siswa, index) => (
+                    <motion.div
+                      key={siswa._id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="flex items-center justify-between p-3 bg-warning/5 border border-warning/20 rounded-lg hover:bg-warning/10 transition-colors"
+                    >
+                      <div>
+                        <p className="font-medium text-neutral-text">
+                          {siswa.name}
+                        </p>
+                        <p className="text-sm text-neutral-secondary">
+                          NIS: {siswa.identifier}
+                        </p>
+                      </div>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          setSelectedSiswa(siswa);
+                          setShowSingleInput(true);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition-colors"
+                      >
+                        <Plus className="w-4 h-4" />
+                        Input Nilai
+                      </motion.button>
+                    </motion.div>
+                  ))}
+                </div>
+              );
+            })()}
+          </Card>
+        </motion.div>
+      )}
       {/* Bulk Input Modal */}
       <BulkInputModal
         show={showBulkInput}
@@ -919,6 +1296,20 @@ export default function ManajemenNilaiPage() {
         tahunAjaran={tahunAjaran}
         onSubmit={handleBulkSubmit}
       />
+      {selectedSiswa && (
+        <SingleInputModal
+          show={showSingleInput}
+          onClose={() => {
+            setShowSingleInput(false);
+            setSelectedSiswa(null);
+          }}
+          siswa={selectedSiswa}
+          selectedJenis={selectedJenis}
+          semester={semester}
+          tahunAjaran={tahunAjaran}
+          onSubmit={handleSingleSubmit}
+        />
+      )}
     </div>
   );
 }

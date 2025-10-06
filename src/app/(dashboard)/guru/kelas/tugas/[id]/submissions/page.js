@@ -65,36 +65,67 @@ export default function TugasSubmissionsPage({ params }) {
 
       console.log("Submissions response:", response);
 
+      // Backend sudah mengembalikan array submissions langsung
       if (Array.isArray(response)) {
         setSubmissions(response);
         calculateStats(response);
       } else {
+        console.error("Unexpected response format:", response);
         showToast.error("Format data tidak valid");
+        setSubmissions([]);
+        calculateStats([]);
       }
     } catch (error) {
       console.error("Error fetching submissions:", error);
-      showToast.error("Gagal memuat data pengumpulan tugas.");
+
+      // Tangani error 403 (tidak punya akses)
+      if (error.response?.status === 403) {
+        showToast.error("Anda tidak memiliki akses ke tugas ini");
+        router.push("/guru/kelas/tugas");
+        return;
+      }
+
+      showToast.error(
+        error.response?.data?.message || "Gagal memuat data pengumpulan tugas."
+      );
+      setSubmissions([]);
+      calculateStats([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const calculateStats = (submissionsList) => {
+    if (!Array.isArray(submissionsList) || submissionsList.length === 0) {
+      setStats({
+        totalSubmissions: 0,
+        graded: 0,
+        ungraded: 0,
+        averageScore: 0,
+      });
+      return;
+    }
+
     const graded = submissionsList.filter(
-      (sub) => sub.nilai !== undefined && sub.nilai !== null
+      (sub) =>
+        sub.nilai !== undefined && sub.nilai !== null && !isNaN(sub.nilai)
     );
+
     const ungraded = submissionsList.filter(
       (sub) => sub.nilai === undefined || sub.nilai === null
     );
 
-    const totalScore = graded.reduce((acc, sub) => acc + sub.nilai, 0);
-    const averageScore = graded.length > 0 ? totalScore / graded.length : 0;
+    const totalScore = graded.reduce((acc, sub) => acc + (sub.nilai || 0), 0);
+    const averageScore =
+      graded.length > 0
+        ? Math.round((totalScore / graded.length) * 10) / 10
+        : 0;
 
     setStats({
       totalSubmissions: submissionsList.length,
       graded: graded.length,
       ungraded: ungraded.length,
-      averageScore: Math.round(averageScore * 10) / 10,
+      averageScore: averageScore,
     });
   };
 
@@ -139,9 +170,19 @@ export default function TugasSubmissionsPage({ params }) {
       fetchSubmissions(); // Refresh data
     } catch (error) {
       console.error("Error grading submission:", error);
-      showToast.error(
-        error.response?.data?.message || "Gagal menyimpan nilai."
-      );
+
+      // Tangani berbagai jenis error
+      if (error.response?.status === 404) {
+        showToast.error("Submission tidak ditemukan");
+      } else if (error.response?.status === 403) {
+        showToast.error(
+          "Anda tidak memiliki akses untuk menilai submission ini"
+        );
+      } else {
+        showToast.error(
+          error.response?.data?.message || "Gagal menyimpan nilai."
+        );
+      }
     }
   };
 

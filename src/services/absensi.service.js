@@ -1,5 +1,4 @@
-// 6. src/services/absensi.service.js
-// ============================================
+// src/services/absensi.service.js (Updated)
 import axiosInstance from "@/lib/axios-instance";
 
 export const absensiService = {
@@ -87,6 +86,20 @@ export const absensiService = {
    */
   updateKeterangan: async (id, keterangan) => {
     const response = await axiosInstance.put(`/absensi/${id}`, { keterangan });
+    return response.data;
+  },
+
+  /**
+   * Create Manual Absensi (Guru/Admin) - BARU
+   * Body: {
+   *   siswaId: string,
+   *   jadwalId: string,
+   *   keterangan: 'hadir'|'izin'|'sakit'|'alpa',
+   *   tanggal: 'YYYY-MM-DD'
+   * }
+   */
+  createManualAbsensi: async (data) => {
+    const response = await axiosInstance.post("/absensi/manual", data);
     return response.data;
   },
 

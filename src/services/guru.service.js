@@ -10,6 +10,34 @@ export const guruService = {
     const response = await axiosInstance.get("/guru/dashboard");
     return response.data;
   },
+  /**
+   * Update Nilai
+   * PUT /api/guru/nilai/:id
+   * Body: { nilai: number, deskripsi?: string }
+   */
+  updateNilai: async (id, data) => {
+    const response = await axiosInstance.put(`/guru/nilai/${id}`, data);
+    return response.data;
+  },
+
+  /**
+   * Delete Nilai
+   * DELETE /api/guru/nilai/:id
+   */
+  deleteNilai: async (id) => {
+    const response = await axiosInstance.delete(`/guru/nilai/${id}`);
+    return response.data;
+  },
+
+  /**
+   * Get Nilai Stats
+   * GET /api/guru/nilai/stats
+   * Query: ?kelasId=xxx&mataPelajaranId=xxx&semester=ganjil&tahunAjaran=2024/2025
+   */
+  getNilaiStats: async (params) => {
+    const response = await axiosInstance.get("/guru/nilai/stats", { params });
+    return response.data;
+  },
 
   /**
    * Get Kelas yang Diampu oleh Guru

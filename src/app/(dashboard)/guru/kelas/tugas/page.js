@@ -82,6 +82,7 @@ export default function ManajemenTugasPage() {
     try {
       const allTugasPromises = [];
 
+      // Jika ada filter spesifik, langsung query
       if (selectedKelas !== "all" && selectedMapel !== "all") {
         const response = await tugasService.getTugasByKelas({
           kelasId: selectedKelas,
@@ -90,51 +91,59 @@ export default function ManajemenTugasPage() {
         const tugasData = Array.isArray(response) ? response : [];
         setTugas(tugasData);
         calculateStats(tugasData);
-      } else {
-        const kelasResponse = await guruService.getKelasDiampu();
-        const mapelResponse = await guruService.getMataPelajaranDiampu();
-
-        const kelas = Array.isArray(kelasResponse) ? kelasResponse : [];
-        const mapel = Array.isArray(mapelResponse) ? mapelResponse : [];
-
-        if (kelas.length === 0 || mapel.length === 0) {
-          setTugas([]);
-          calculateStats([]);
-          return;
-        }
-
-        for (const k of kelas) {
-          for (const m of mapel) {
-            allTugasPromises.push(
-              tugasService
-                .getTugasByKelas({
-                  kelasId: k._id,
-                  mataPelajaranId: m._id,
-                })
-                .catch((err) => {
-                  console.error(
-                    `Error fetching tugas for kelas ${k._id} and mapel ${m._id}:`,
-                    err
-                  );
-                  return [];
-                })
-            );
-          }
-        }
-
-        const allTugasResults = await Promise.all(allTugasPromises);
-        const allTugasFlat = allTugasResults.flat();
-
-        const uniqueTugas = Array.from(
-          new Map(allTugasFlat.map((item) => [item._id, item])).values()
-        );
-
-        setTugas(uniqueTugas);
-        calculateStats(uniqueTugas);
+        return;
       }
+
+      // Ambil semua kelas dan mapel yang diampu
+      const [kelasResponse, mapelResponse] = await Promise.all([
+        guruService.getKelasDiampu(),
+        guruService.getMataPelajaranDiampu(),
+      ]);
+
+      const kelas = Array.isArray(kelasResponse) ? kelasResponse : [];
+      const mapel = Array.isArray(mapelResponse) ? mapelResponse : [];
+
+      if (kelas.length === 0 || mapel.length === 0) {
+        setTugas([]);
+        calculateStats([]);
+        return;
+      }
+
+      // Fetch tugas untuk setiap kombinasi kelas dan mapel
+      for (const k of kelas) {
+        for (const m of mapel) {
+          allTugasPromises.push(
+            tugasService
+              .getTugasByKelas({
+                kelasId: k._id,
+                mataPelajaranId: m._id,
+              })
+              .catch((err) => {
+                console.error(
+                  `Error fetching tugas for kelas ${k.nama} and mapel ${m.nama}:`,
+                  err
+                );
+                return [];
+              })
+          );
+        }
+      }
+
+      const allTugasResults = await Promise.all(allTugasPromises);
+      const allTugasFlat = allTugasResults.flat();
+
+      // Deduplikasi berdasarkan _id
+      const uniqueTugas = Array.from(
+        new Map(allTugasFlat.map((item) => [item._id, item])).values()
+      );
+
+      setTugas(uniqueTugas);
+      calculateStats(uniqueTugas);
     } catch (error) {
       console.error("Error fetching tugas:", error);
-      showToast.error("Gagal memuat daftar tugas.");
+      showToast.error(
+        error.response?.data?.message || "Gagal memuat daftar tugas."
+      );
       setTugas([]);
       calculateStats([]);
     }
