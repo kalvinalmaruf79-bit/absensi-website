@@ -1,3 +1,4 @@
+// src\app\(dashboard)\guru\analisis\page.js
 "use client";
 import { motion } from "framer-motion";
 import AnalisisKinerja from "@/components/guru/AnalisisKinerja";
