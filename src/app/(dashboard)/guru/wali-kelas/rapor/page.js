@@ -1,15 +1,16 @@
-// src/app/(dashboard)/guru/wali-kelas/rapor/page.js
 "use client";
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { FileText, Loader2, Download, Search, Filter } from "lucide-react";
+import { FileText, Loader2, Download, Search } from "lucide-react";
 import Card from "@/components/ui/Card";
 import { akademikService } from "@/services/akademik.service";
+import { guruService } from "@/services/guru.service"; // 1. IMPOR GURU SERVICE
 import { showToast } from "@/lib/toast";
 
 export default function RaporWaliKelasPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingSiswa, setIsFetchingSiswa] = useState(true); // State baru untuk loading siswa
   const [siswaList, setSiswaList] = useState([]);
   const [selectedSiswa, setSelectedSiswa] = useState(null);
   const [rapor, setRapor] = useState(null);
@@ -25,19 +26,19 @@ export default function RaporWaliKelasPage() {
   }, []);
 
   const fetchSiswa = async () => {
-    setIsLoading(true);
+    setIsFetchingSiswa(true); // Mulai loading
     try {
-      // Asumsi: endpoint untuk get siswa di kelas wali kelas
-      // Sesuaikan dengan endpoint yang tersedia
-      const response = await fetch("/api/guru/wali-kelas/siswa");
-      const data = await response.json();
-      if (data.success) {
-        setSiswaList(data.data || []);
-      }
+      // 2. GUNAKAN GURU SERVICE UNTUK MENGAMBIL DATA
+      const response = await guruService.getSiswaWaliKelas();
+      // 3. SESUAIKAN DENGAN STRUKTUR DATA DARI BACKEND
+      setSiswaList(response.siswa || []);
     } catch (error) {
-      showToast.error("Gagal memuat data siswa");
+      showToast.error(
+        error.response?.data?.message || "Gagal memuat data siswa"
+      );
+      setSiswaList([]); // Kosongkan list jika gagal
     } finally {
-      setIsLoading(false);
+      setIsFetchingSiswa(false); // Selesai loading
     }
   };
 
@@ -48,6 +49,7 @@ export default function RaporWaliKelasPage() {
     }
 
     setIsLoading(true);
+    setRapor(null); // Reset rapor sebelumnya
     try {
       const response = await akademikService.generateRapor(selectedSiswa._id, {
         tahunAjaran,
@@ -65,9 +67,6 @@ export default function RaporWaliKelasPage() {
 
   const handleDownloadRapor = () => {
     if (!rapor) return;
-
-    // Convert rapor to downloadable format (PDF/Excel)
-    // Implementasi download sesuai kebutuhan
     showToast.info("Fitur download sedang dalam pengembangan");
   };
 
@@ -121,22 +120,32 @@ export default function RaporWaliKelasPage() {
 
           {/* Siswa List */}
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {filteredSiswa.map((siswa) => (
-              <button
-                key={siswa._id}
-                onClick={() => setSelectedSiswa(siswa)}
-                className={`w-full text-left p-3 rounded-lg border transition-colors ${
-                  selectedSiswa?._id === siswa._id
-                    ? "border-primary-main bg-primary-surface"
-                    : "border-neutral-border hover:border-primary-main"
-                }`}
-              >
-                <p className="font-medium text-neutral-text">{siswa.name}</p>
-                <p className="text-sm text-neutral-secondary">
-                  NIS: {siswa.identifier}
-                </p>
-              </button>
-            ))}
+            {isFetchingSiswa ? (
+              <div className="flex justify-center items-center py-10">
+                <Loader2 className="w-6 h-6 animate-spin text-primary-main" />
+              </div>
+            ) : filteredSiswa.length > 0 ? (
+              filteredSiswa.map((siswa) => (
+                <button
+                  key={siswa._id}
+                  onClick={() => setSelectedSiswa(siswa)}
+                  className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                    selectedSiswa?._id === siswa._id
+                      ? "border-primary-main bg-primary-surface"
+                      : "border-neutral-border hover:border-primary-main"
+                  }`}
+                >
+                  <p className="font-medium text-neutral-text">{siswa.name}</p>
+                  <p className="text-sm text-neutral-secondary">
+                    NIS: {siswa.identifier}
+                  </p>
+                </button>
+              ))
+            ) : (
+              <p className="text-center text-sm text-neutral-secondary py-10">
+                Tidak ada data siswa.
+              </p>
+            )}
           </div>
         </Card>
 
