@@ -20,6 +20,7 @@ import {
   GraduationCap,
   Presentation,
   UserCheck,
+  User, // <-- TAMBAHKAN IMPORT ICON INI
 } from "lucide-react";
 
 // --- Komponen Submenu untuk Dropdown ---
@@ -161,6 +162,11 @@ export default function Sidebar({
       title: "Dashboard",
       icon: <LayoutDashboard className="w-5 h-5" />,
       path: "/guru/dashboard",
+    },
+    {
+      title: "Profil Saya", // <-- MENU BARU
+      icon: <User className="w-5 h-5" />, // <-- MENU BARU
+      path: "/guru/profile", // <-- MENU BARU
     },
     {
       title: "Kelas Saya",
