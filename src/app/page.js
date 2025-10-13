@@ -15,7 +15,7 @@ import {
   GraduationCap,
   ChevronDown,
 } from "lucide-react";
-
+import Image from "next/image";
 export default function Home() {
   const { user, isAuthenticated, getDashboardPath } = useAuth();
 
@@ -64,9 +64,16 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-              <Scan className="text-white" size={24} />
+              <Image
+                src="/images/school_logo.png"
+                alt="Logo SMKPresensi"
+                width={40}
+                height={40}
+              />
             </div>
-            <span className="text-2xl font-bold text-gray-900">SMKScan</span>
+            <span className="text-2xl font-bold text-gray-900">
+              SMKPresensi
+            </span>
           </div>
           {isAuthenticated && user ? (
             <Link
@@ -219,7 +226,7 @@ export default function Home() {
               </h2>
               <p className="text-xl mb-8 text-white/90">
                 Bergabunglah dengan sekolah-sekolah yang sudah menggunakan
-                SMKScan
+                SMKPresensi
               </p>
               <Link
                 href="/login"
@@ -240,15 +247,20 @@ export default function Home() {
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
-              <Scan className="text-white" size={24} />
+              <Image
+                src="/images/school_logo.png"
+                alt="Logo SMKPresensi"
+                width={40}
+                height={40}
+              />
             </div>
-            <span className="text-2xl font-bold">SMKScan</span>
+            <span className="text-2xl font-bold">SMKPresensi</span>
           </div>
           <p className="text-gray-400 mb-4">
             Platform manajemen sekolah SMK modern dan terintegrasi
           </p>
           <div className="border-t border-gray-800 pt-8 text-gray-400">
-            <p>&copy; 2025 SMKScan. All rights reserved.</p>
+            <p>&copy; 2025 SMKPresensi. All rights reserved.</p>
           </div>
         </div>
       </footer>

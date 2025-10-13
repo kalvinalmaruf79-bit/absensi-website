@@ -22,7 +22,7 @@ import {
   UserCheck,
   User, // <-- TAMBAHKAN IMPORT ICON INI
 } from "lucide-react";
-
+import Image from "next/image";
 // --- Komponen Submenu untuk Dropdown ---
 const SubMenu = ({ menu, pathname, isCollapsed }) => {
   const [isSubMenuOpen, setIsSubMenuOpen] = useState(
@@ -239,10 +239,15 @@ export default function Sidebar({
               className="flex items-center gap-3"
             >
               <div className="w-10 h-10 bg-gradient-to-br from-[#00b2e2] to-[#005f8b] rounded-lg flex items-center justify-center shadow-md">
-                <span className="text-white font-bold text-xl">S</span>
+                <Image
+                  src="/images/school_logo.png"
+                  alt="Logo SMKPresensi"
+                  width={40}
+                  height={40}
+                />
               </div>
               <div>
-                <h1 className="font-bold text-gray-800">SMKScan</h1>
+                <h1 className="font-bold text-gray-800">SMKPresensi</h1>
                 <p className="text-xs text-gray-500">Nanga Pinoh</p>
               </div>
             </motion.div>
