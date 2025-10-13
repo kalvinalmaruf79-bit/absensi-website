@@ -1,9 +1,9 @@
-// src/app/(dashboard)/guru/kelas/presensi/page.js
 "use client";
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, QrCode, Users, Clock } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Card from "@/components/ui/Card";
 import { guruService } from "@/services/guru.service";
 import { qrService } from "@/services/qr.service";
@@ -13,6 +13,7 @@ import SesiAktifPanel from "@/components/guru/SesiAktifPanel";
 import DaftarKehadiranRealtime from "@/components/guru/DaftarKehadiranRealtime";
 
 export default function PresensiPage() {
+  const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [jadwalHariIni, setJadwalHariIni] = useState([]);
   const [sesiAktif, setSesiAktif] = useState(null);
@@ -22,12 +23,10 @@ export default function PresensiPage() {
     initializePage();
   }, []);
 
-  // PERUBAHAN UTAMA: Fungsi untuk initialize page dengan cek sesi aktif
   const initializePage = async () => {
     try {
       setIsLoading(true);
 
-      // 1. Fetch jadwal hari ini
       const hariMap = {
         0: "minggu",
         1: "senin",
@@ -43,7 +42,6 @@ export default function PresensiPage() {
       const jadwalToday = allJadwal[hariIni] || [];
       setJadwalHariIni(jadwalToday);
 
-      // 2. Cek apakah ada sesi aktif
       await checkActiveSessions(jadwalToday);
     } catch (error) {
       console.error("Error initializing page:", error);
@@ -53,20 +51,16 @@ export default function PresensiPage() {
     }
   };
 
-  // FUNGSI BARU: Cek sesi aktif yang sedang berjalan
   const checkActiveSessions = async (jadwalList) => {
     try {
       const activeSessions = await qrService.checkActiveSessions();
 
       if (activeSessions && activeSessions.length > 0) {
-        // Ambil sesi pertama yang aktif
         const sesi = activeSessions[0];
-
-        // Cari jadwal yang sesuai
         const matchedJadwal = jadwalList.find((j) => j._id === sesi.jadwal._id);
 
         if (matchedJadwal) {
-          // Recreate QR Code dari sesi yang ada
+          const QRCode = require("qrcode");
           const qrData = {
             KODE_SESI: sesi.kodeUnik,
             MATA_PELAJARAN: sesi.jadwal.mataPelajaran.nama,
@@ -75,8 +69,6 @@ export default function PresensiPage() {
             EXPIRED: sesi.expiredAt,
           };
 
-          // Generate QR Code lagi (atau bisa simpan di backend)
-          const QRCode = require("qrcode");
           const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData));
 
           setSesiAktif({
@@ -99,7 +91,6 @@ export default function PresensiPage() {
       }
     } catch (error) {
       console.error("Error checking active sessions:", error);
-      // Silent fail, tidak perlu toast karena ini bukan error kritis
     }
   };
 
@@ -109,7 +100,6 @@ export default function PresensiPage() {
     setIsGeneratingQR(true);
 
     try {
-      // Dapatkan lokasi dari browser
       const position = await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
           enableHighAccuracy: true,
@@ -120,14 +110,12 @@ export default function PresensiPage() {
 
       const { latitude, longitude } = position.coords;
 
-      // Generate QR Code
       const response = await qrService.generateQR({
         jadwalId: jadwal._id,
         latitude,
         longitude,
       });
 
-      // Set sesi aktif dengan data lengkap
       setSesiAktif({
         ...response,
         jadwalId: jadwal._id,
@@ -141,7 +129,6 @@ export default function PresensiPage() {
         longitude,
       });
 
-      // PERUBAHAN: Pesan yang lebih informatif
       if (response.isExisting) {
         showToast.info("Sesi presensi yang sudah aktif berhasil dimuat!");
       } else {
@@ -166,6 +153,10 @@ export default function PresensiPage() {
     showToast.success("Sesi presensi telah diakhiri");
   };
 
+  const handleAbsenManual = (jadwal) => {
+    router.push(`/guru/kelas/presensi/manual?jadwalId=${jadwal._id}`);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -176,7 +167,6 @@ export default function PresensiPage() {
 
   return (
     <div className="container mx-auto px-6 py-8">
-      {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -197,7 +187,6 @@ export default function PresensiPage() {
         </div>
       </motion.div>
 
-      {/* Info Banner */}
       {!sesiAktif && jadwalHariIni.length === 0 && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -220,9 +209,7 @@ export default function PresensiPage() {
         </motion.div>
       )}
 
-      {/* Main Content - Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Panel Kiri: Jadwal Hari Ini */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -232,11 +219,11 @@ export default function PresensiPage() {
             jadwalHariIni={jadwalHariIni}
             sesiAktif={sesiAktif}
             onMulaiSesi={handleMulaiSesi}
+            onAbsenManual={handleAbsenManual}
             isGeneratingQR={isGeneratingQR}
           />
         </motion.div>
 
-        {/* Panel Kanan: Sesi Aktif / Placeholder */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
