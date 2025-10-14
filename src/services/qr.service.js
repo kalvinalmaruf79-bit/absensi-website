@@ -23,4 +23,23 @@ export const qrService = {
     const response = await axiosInstance.get("/qr/check-active");
     return response.data;
   },
+
+  /**
+   * End Session (Guru)
+   * Mengakhiri sesi presensi spesifik
+   * @param {string} sesiId - ID sesi yang akan diakhiri
+   */
+  endSession: async (sesiId) => {
+    const response = await axiosInstance.put(`/qr/end/${sesiId}`);
+    return response.data;
+  },
+
+  /**
+   * End All Active Sessions (Guru)
+   * Mengakhiri semua sesi aktif guru hari ini (opsional)
+   */
+  endAllActiveSessions: async () => {
+    const response = await axiosInstance.put("/qr/end-all");
+    return response.data;
+  },
 };

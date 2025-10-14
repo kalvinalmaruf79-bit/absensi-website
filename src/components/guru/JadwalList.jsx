@@ -1,6 +1,7 @@
-// components/guru/JadwalList.jsx
+"use client";
+
 import { motion } from "framer-motion";
-import { Clock, BookOpen, Users, Play, Loader2, UserPlus } from "lucide-react";
+import { Clock, Users, BookOpen, MapPin, QrCode, Loader2 } from "lucide-react";
 import Card from "@/components/ui/Card";
 
 export default function JadwalList({
@@ -10,18 +11,23 @@ export default function JadwalList({
   onAbsenManual,
   isGeneratingQR,
 }) {
+  const isJadwalAktif = (jadwal) => {
+    return sesiAktif?.jadwalId === jadwal._id;
+  };
+
+  const formatWaktu = (jamMulai, jamSelesai) => {
+    return `${jamMulai} - ${jamSelesai} WIB`;
+  };
+
   if (jadwalHariIni.length === 0) {
     return (
-      <Card className="h-full min-h-[400px] flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 rounded-full bg-neutral-light/20 flex items-center justify-center mx-auto mb-4">
-            <Clock className="w-10 h-10 text-neutral-light" />
+      <Card>
+        <div className="text-center py-12">
+          <div className="w-16 h-16 rounded-full bg-neutral-light/20 flex items-center justify-center mx-auto mb-4">
+            <Clock className="w-8 h-8 text-neutral-light" />
           </div>
-          <h3 className="text-lg font-semibold text-neutral-text mb-2">
-            Tidak Ada Jadwal Hari Ini
-          </h3>
-          <p className="text-sm text-neutral-secondary max-w-sm">
-            Anda tidak memiliki jadwal mengajar untuk hari ini
+          <p className="text-neutral-secondary">
+            Tidak ada jadwal mengajar hari ini
           </p>
         </div>
       </Card>
@@ -29,108 +35,102 @@ export default function JadwalList({
   }
 
   return (
-    <Card>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-          <Clock className="w-5 h-5 text-primary" />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold text-neutral-text">
-            Jadwal Mengajar Hari Ini
-          </h2>
-          <p className="text-sm text-neutral-secondary">
-            Senin, 13 Oktober 2025
-          </p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-neutral-text">Jadwal Hari Ini</h2>
+        <span className="text-sm text-neutral-secondary">
+          {jadwalHariIni.length} Kelas
+        </span>
       </div>
 
-      <div className="space-y-4">
-        {jadwalHariIni.map((jadwal, index) => {
-          const isActive = sesiAktif?.jadwalId === jadwal._id;
+      {jadwalHariIni.map((jadwal, index) => {
+        const isAktif = isJadwalAktif(jadwal);
 
-          return (
-            <motion.div
-              key={jadwal._id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className={`p-4 rounded-lg border-2 transition-all ${
-                isActive
-                  ? "border-primary bg-primary/5"
-                  : "border-neutral-border hover:border-neutral-light"
+        return (
+          <motion.div
+            key={jadwal._id}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+          >
+            <Card
+              className={`transition-all ${
+                isAktif
+                  ? "border-2 border-success bg-success/5 shadow-lg shadow-success/10"
+                  : "hover:shadow-lg"
               }`}
             >
-              {/* Header Jadwal */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    <Users className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-neutral-text">
-                      {jadwal.kelas?.nama || "Kelas"}
+              {/* Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <BookOpen className="w-5 h-5 text-primary" />
+                    <h3 className="font-bold text-lg text-neutral-text">
+                      {jadwal.mataPelajaran?.nama || "Mata Pelajaran"}
                     </h3>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-neutral-secondary">
+                      <Users className="w-4 h-4" />
+                      <span>{jadwal.kelas?.nama || "Kelas"}</span>
+                    </div>
+
                     <div className="flex items-center gap-2 text-sm text-neutral-secondary">
                       <Clock className="w-4 h-4" />
                       <span>
-                        {jadwal.jamMulai} - {jadwal.jamSelesai}
+                        {formatWaktu(jadwal.jamMulai, jadwal.jamSelesai)}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {isActive && (
-                  <span className="px-3 py-1 rounded-full bg-success/10 text-success text-xs font-medium">
-                    Sesi Aktif
-                  </span>
+                {isAktif && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-success/10 border border-success/20 rounded-lg">
+                    <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
+                    <span className="text-xs font-semibold text-success">
+                      Aktif
+                    </span>
+                  </div>
                 )}
               </div>
 
-              {/* Mata Pelajaran */}
-              <div className="flex items-center gap-2 mb-4 pl-13">
-                <BookOpen className="w-4 h-4 text-neutral-secondary" />
-                <span className="text-sm text-neutral-text">
-                  {jadwal.mataPelajaran?.nama || "Mata Pelajaran"}
-                </span>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex gap-2 pl-13">
+              {/* Actions */}
+              <div className="flex gap-3">
                 <button
                   onClick={() => onMulaiSesi(jadwal)}
-                  disabled={isActive || isGeneratingQR}
-                  className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                    isActive
-                      ? "bg-neutral-light text-neutral-secondary cursor-not-allowed"
-                      : "bg-primary hover:bg-primary-dark text-white shadow-lg shadow-primary/25"
+                  disabled={isAktif || isGeneratingQR}
+                  className={`flex-1 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
+                    isAktif
+                      ? "bg-neutral-light/20 text-neutral-light cursor-not-allowed"
+                      : "bg-gradient-to-r from-primary to-primary-dark text-white hover:shadow-lg hover:scale-105"
                   }`}
                 >
                   {isGeneratingQR ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-5 h-5 animate-spin" />
                       <span>Memproses...</span>
                     </>
                   ) : (
                     <>
-                      <Play className="w-4 h-4" />
-                      <span>Mulai Sesi Presensi</span>
+                      <QrCode className="w-5 h-5" />
+                      <span>{isAktif ? "Sesi Aktif" : "Mulai Sesi"}</span>
                     </>
                   )}
                 </button>
 
                 <button
                   onClick={() => onAbsenManual(jadwal)}
-                  className="px-4 py-2.5 rounded-lg border-2 border-neutral-border hover:border-primary hover:bg-primary/5 font-medium text-neutral-text hover:text-primary transition-all flex items-center justify-center gap-2"
-                  title="Absen Manual"
+                  className="px-6 py-3 bg-white border-2 border-primary text-primary hover:bg-primary/5 rounded-xl font-medium transition-all hover:scale-105 flex items-center gap-2"
                 >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Absen Manual</span>
+                  <MapPin className="w-5 h-5" />
+                  <span className="hidden sm:inline">Absen Manual</span>
                 </button>
               </div>
-            </motion.div>
-          );
-        })}
-      </div>
-    </Card>
+            </Card>
+          </motion.div>
+        );
+      })}
+    </div>
   );
 }

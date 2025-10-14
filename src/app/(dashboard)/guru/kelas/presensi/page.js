@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, QrCode, Users, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import Card from "@/components/ui/Card";
 import { guruService } from "@/services/guru.service";
 import { qrService } from "@/services/qr.service";
@@ -12,12 +13,22 @@ import JadwalList from "@/components/guru/JadwalList";
 import SesiAktifPanel from "@/components/guru/SesiAktifPanel";
 import DaftarKehadiranRealtime from "@/components/guru/DaftarKehadiranRealtime";
 
+const ModalPilihLokasi = dynamic(
+  () => import("@/components/guru/ModalPilihLokasi"),
+  { ssr: false }
+);
+
 export default function PresensiPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
   const [jadwalHariIni, setJadwalHariIni] = useState([]);
   const [sesiAktif, setSesiAktif] = useState(null);
   const [isGeneratingQR, setIsGeneratingQR] = useState(false);
+  const [isEndingSession, setIsEndingSession] = useState(false);
+
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  const [selectedJadwal, setSelectedJadwal] = useState(null);
+  const [initialLocation, setInitialLocation] = useState(null);
 
   useEffect(() => {
     initializePage();
@@ -72,6 +83,7 @@ export default function PresensiPage() {
           const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData));
 
           setSesiAktif({
+            sesiId: sesi._id, // PENTING: Simpan ID sesi
             qrCode: qrCodeDataURL,
             kodeUnik: sesi.kodeUnik,
             expiredAt: sesi.expiredAt,
@@ -97,36 +109,74 @@ export default function PresensiPage() {
   const handleMulaiSesi = async (jadwal) => {
     if (isGeneratingQR) return;
 
-    setIsGeneratingQR(true);
+    setSelectedJadwal(jadwal);
 
     try {
       const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        });
+        const timeout = setTimeout(() => {
+          reject(new Error("Timeout getting location"));
+        }, 5000);
+
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            clearTimeout(timeout);
+            resolve(pos);
+          },
+          (err) => {
+            clearTimeout(timeout);
+            reject(err);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0,
+          }
+        );
       });
 
-      const { latitude, longitude } = position.coords;
+      setInitialLocation({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+    } catch (error) {
+      console.log("Gagal mendapatkan lokasi otomatis, gunakan default:", error);
+      setInitialLocation({
+        latitude: -7.797068,
+        longitude: 110.370529,
+      });
+    }
 
+    setShowLocationModal(true);
+  };
+
+  const handleLocationConfirm = async (location) => {
+    if (!selectedJadwal) {
+      showToast.error("Jadwal tidak ditemukan");
+      return;
+    }
+
+    setIsGeneratingQR(true);
+    setShowLocationModal(false);
+
+    try {
       const response = await qrService.generateQR({
-        jadwalId: jadwal._id,
-        latitude,
-        longitude,
+        jadwalId: selectedJadwal._id,
+        latitude: location.latitude,
+        longitude: location.longitude,
       });
 
       setSesiAktif({
+        sesiId: response.sesiId || null, // Pastikan sesiId ada
         ...response,
-        jadwalId: jadwal._id,
-        kelasId: jadwal.kelas._id,
-        mataPelajaranId: jadwal.mataPelajaran._id,
-        namaKelas: jadwal.kelas.nama,
-        namaMapel: jadwal.mataPelajaran.nama,
-        jamMulai: jadwal.jamMulai,
-        jamSelesai: jadwal.jamSelesai,
-        latitude,
-        longitude,
+        jadwalId: selectedJadwal._id,
+        kelasId: selectedJadwal.kelas._id,
+        mataPelajaranId: selectedJadwal.mataPelajaran._id,
+        namaKelas: selectedJadwal.kelas.nama,
+        namaMapel: selectedJadwal.mataPelajaran.nama,
+        jamMulai: selectedJadwal.jamMulai,
+        jamSelesai: selectedJadwal.jamSelesai,
+        latitude: location.latitude,
+        longitude: location.longitude,
       });
 
       if (response.isExisting) {
@@ -136,25 +186,58 @@ export default function PresensiPage() {
       }
     } catch (error) {
       console.error("Error memulai sesi:", error);
-      if (error.code === 1) {
-        showToast.error("Akses lokasi ditolak. Mohon izinkan akses lokasi.");
-      } else if (error.response?.data?.message) {
+      if (error.response?.data?.message) {
         showToast.error(error.response.data.message);
       } else {
         showToast.error("Gagal memulai sesi presensi");
       }
     } finally {
       setIsGeneratingQR(false);
+      setSelectedJadwal(null);
     }
   };
 
-  const handleAkhiriSesi = () => {
-    setSesiAktif(null);
-    showToast.success("Sesi presensi telah diakhiri");
+  // FIXED: Handler untuk mengakhiri sesi dengan memanggil API
+  const handleAkhiriSesi = async () => {
+    if (!sesiAktif?.sesiId) {
+      showToast.error("ID sesi tidak ditemukan");
+      setSesiAktif(null); // Reset state lokal
+      return;
+    }
+
+    try {
+      setIsEndingSession(true);
+
+      // Panggil API untuk mengakhiri sesi
+      await qrService.endSession(sesiAktif.sesiId);
+
+      // Reset state lokal
+      setSesiAktif(null);
+
+      showToast.success("Sesi presensi berhasil diakhiri");
+    } catch (error) {
+      console.error("Error mengakhiri sesi:", error);
+
+      if (error.response?.status === 404) {
+        // Jika sesi tidak ditemukan, tetap reset state lokal
+        setSesiAktif(null);
+        showToast.warning("Sesi sudah diakhiri sebelumnya");
+      } else {
+        showToast.error("Gagal mengakhiri sesi presensi");
+      }
+    } finally {
+      setIsEndingSession(false);
+    }
   };
 
   const handleAbsenManual = (jadwal) => {
     router.push(`/guru/kelas/presensi/manual?jadwalId=${jadwal._id}`);
+  };
+
+  const handleCloseModal = () => {
+    setShowLocationModal(false);
+    setSelectedJadwal(null);
+    setInitialLocation(null);
   };
 
   if (isLoading) {
@@ -241,6 +324,7 @@ export default function PresensiPage() {
                 <SesiAktifPanel
                   sesiAktif={sesiAktif}
                   onAkhiriSesi={handleAkhiriSesi}
+                  isEndingSession={isEndingSession}
                 />
                 <DaftarKehadiranRealtime sesiAktif={sesiAktif} />
               </motion.div>
@@ -270,6 +354,13 @@ export default function PresensiPage() {
           </AnimatePresence>
         </motion.div>
       </div>
+
+      <ModalPilihLokasi
+        isOpen={showLocationModal}
+        onClose={handleCloseModal}
+        onConfirm={handleLocationConfirm}
+        initialLocation={initialLocation}
+      />
     </div>
   );
 }

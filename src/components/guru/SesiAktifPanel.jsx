@@ -10,11 +10,16 @@ import {
   MapPin,
   BookOpen,
   Users,
+  Loader2,
 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import { showToast } from "@/lib/toast";
 
-export default function SesiAktifPanel({ sesiAktif, onAkhiriSesi }) {
+export default function SesiAktifPanel({
+  sesiAktif,
+  onAkhiriSesi,
+  isEndingSession = false,
+}) {
   const [timeRemaining, setTimeRemaining] = useState("");
   const [isCopied, setIsCopied] = useState(false);
 
@@ -76,10 +81,24 @@ export default function SesiAktifPanel({ sesiAktif, onAkhiriSesi }) {
         </div>
         <button
           onClick={handleAkhiriSesi}
-          className="px-4 py-2 bg-error/10 hover:bg-error/20 text-error rounded-lg font-medium transition-colors flex items-center gap-2"
+          disabled={isEndingSession}
+          className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+            isEndingSession
+              ? "bg-neutral-light/20 text-neutral-light cursor-not-allowed"
+              : "bg-error/10 hover:bg-error/20 text-error"
+          }`}
         >
-          <XCircle className="w-4 h-4" />
-          <span>Akhiri Sesi</span>
+          {isEndingSession ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Mengakhiri...</span>
+            </>
+          ) : (
+            <>
+              <XCircle className="w-4 h-4" />
+              <span>Akhiri Sesi</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -135,9 +154,12 @@ export default function SesiAktifPanel({ sesiAktif, onAkhiriSesi }) {
               </div>
               <button
                 onClick={handleCopyKode}
+                disabled={isEndingSession}
                 className={`p-3 rounded-lg transition-all ${
                   isCopied
                     ? "bg-success text-white"
+                    : isEndingSession
+                    ? "bg-neutral-light/10 text-neutral-light cursor-not-allowed"
                     : "bg-neutral-light/20 hover:bg-neutral-light/30 text-neutral-text"
                 }`}
               >
@@ -179,6 +201,22 @@ export default function SesiAktifPanel({ sesiAktif, onAkhiriSesi }) {
           </div>
         </div>
       </div>
+
+      {/* Warning ketika mengakhiri sesi */}
+      {isEndingSession && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 p-3 bg-warning/10 border border-warning/20 rounded-lg"
+        >
+          <div className="flex items-start gap-2">
+            <Loader2 className="w-4 h-4 text-warning mt-0.5 animate-spin" />
+            <p className="text-sm text-warning">
+              Sedang mengakhiri sesi presensi...
+            </p>
+          </div>
+        </motion.div>
+      )}
     </Card>
   );
 }
