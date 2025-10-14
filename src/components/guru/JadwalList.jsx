@@ -1,3 +1,4 @@
+// src/components/guru/JadwalList.jsx
 "use client";
 
 import { motion } from "framer-motion";
