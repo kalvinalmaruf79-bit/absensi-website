@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "SMKScan - Sistem Manajemen Kehadiran & Akademik",
+  title: "SMKPresensi - Sistem Manajemen Sekolah & Absensi Terintegrasi",
   description: "Platform manajemen sekolah SMK modern dan terintegrasi",
 };
 

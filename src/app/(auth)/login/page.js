@@ -72,7 +72,7 @@ export default function LoginPage() {
             <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
               <Scan size={32} />
             </div>
-            <h1 className="text-4xl font-bold">SMKScan</h1>
+            <h1 className="text-4xl font-bold">SMKPresensi</h1>
           </div>
           <h2 className="text-3xl font-bold mb-4">
             Sistem Manajemen Sekolah Modern

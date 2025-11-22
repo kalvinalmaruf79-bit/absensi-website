@@ -1,8 +1,9 @@
 // 1. src/lib/axios-instance.js
 import axios from "axios";
-
+// production
 const BASE_URL = "https://absensi-backend-9dl5.vercel.app/api";
-
+// testing
+//const BASE_URL = "http://localhost:6001/api";
 // Buat instance axios
 const axiosInstance = axios.create({
   baseURL: BASE_URL,

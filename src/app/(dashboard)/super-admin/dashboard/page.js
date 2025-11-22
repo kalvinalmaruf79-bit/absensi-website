@@ -426,7 +426,7 @@ export default function SuperAdminDashboard() {
             transition={{ delay: 0.2, duration: 0.4 }}
             className="text-white/90"
           >
-            Monitoring dan kelola sistem SMKScan secara terpusat
+            Monitoring dan kelola sistem SMKPresensi secara terpusat
           </motion.p>
         </div>
         <div className="absolute right-0 top-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />

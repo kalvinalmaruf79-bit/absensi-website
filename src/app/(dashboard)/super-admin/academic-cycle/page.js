@@ -2,16 +2,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   GraduationCap,
   TrendingUp,
   AlertCircle,
   CheckCircle2,
-  XCircle,
   Loader2,
   FileText,
-  Users,
   ArrowRight,
   Info,
   AlertTriangle,
@@ -85,13 +83,8 @@ export default function AcademicCyclePage() {
     }
   };
 
-  const getNextTingkat = (currentTingkat) => {
-    if (currentTingkat === "X") return "XI";
-    if (currentTingkat === "XI") return "XII";
-    return "";
-  };
-
   const getNextTahunAjaran = (current) => {
+    if (!current) return "";
     const [start, end] = current.split("/").map(Number);
     return `${start + 1}/${end + 1}`;
   };
@@ -113,11 +106,28 @@ export default function AcademicCyclePage() {
         setRecommendations(response.data);
         setDataAvailability(response.data.dataAvailability);
 
+        // FIX: Fetch SEMUA kelas untuk Tahun Ajaran DEPAN
+        // Ini penting agar dropdown berisi kelas "Next Level" DAN kelas "Same Level" (untuk yang tinggal kelas)
+        const nextTA = getNextTahunAjaran(tahunAjaran);
+        const targetResponse = await superAdminService.getAllKelas({
+          isActive: "true",
+          tahunAjaran: nextTA, // Kunci perbaikan: Fetch berdasarkan Tahun Ajaran Baru
+          limit: 1000,
+        });
+
+        let availableTargets = [];
+        if (targetResponse.success) {
+          availableTargets = targetResponse.data || [];
+          setTargetKelasList(availableTargets);
+        }
+
         const initialSiswaData = response.data.siswa.map((s) => ({
           siswaId: s.siswaId,
           nama: s.nama,
           nis: s.nis,
           status: s.systemRecommendation,
+          // Backend mungkin mengembalikan ID kelas rekomendasi.
+          // Kita gunakan itu jika ada di daftar target kelas yang baru.
           toKelasId: s.recommendedKelasId || "",
           rekap: s.rekap,
           reasons: s.reasons,
@@ -125,21 +135,6 @@ export default function AcademicCyclePage() {
           needsManualReview: s.needsManualReview || false,
         }));
         setSiswaData(initialSiswaData);
-
-        const nextTingkat = getNextTingkat(selectedKelas.tingkat);
-        const nextTA = getNextTahunAjaran(tahunAjaran);
-
-        if (nextTingkat) {
-          const targetResponse = await superAdminService.getAllKelas({
-            isActive: "true",
-            tingkat: nextTingkat,
-            tahunAjaran: nextTA,
-            limit: 1000,
-          });
-          if (targetResponse.success) {
-            setTargetKelasList(targetResponse.data || []);
-          }
-        }
 
         setStep(2);
       }
@@ -158,10 +153,21 @@ export default function AcademicCyclePage() {
         if (s.siswaId === siswaId) {
           let newKelasId = s.toKelasId;
 
-          if (newStatus === "Tinggal Kelas") {
-            newKelasId = selectedKelas._id;
-          } else if (newStatus === "Lulus") {
+          if (newStatus === "Lulus") {
             newKelasId = "";
+          }
+          // FIX: Jangan otomatis set ke selectedKelas._id (kelas lama) jika Tinggal Kelas.
+          // Biarkan user memilih kelas di tahun ajaran baru, atau reset agar user sadar harus memilih.
+          else if (
+            newStatus === "Tinggal Kelas" &&
+            s.status !== "Tinggal Kelas"
+          ) {
+            // Opsional: Bisa coba cari kelas dengan nama sama di targetKelasList
+            const sameClassName = selectedKelas.nama;
+            const targetSameClass = targetKelasList.find(
+              (k) => k.nama === sameClassName
+            );
+            newKelasId = targetSameClass ? targetSameClass._id : "";
           }
 
           return {
@@ -194,11 +200,10 @@ export default function AcademicCyclePage() {
       return;
     }
 
-    // Warning jika ada siswa yang perlu review manual
     const needsReview = siswaData.filter((s) => s.needsManualReview);
     if (needsReview.length > 0) {
       const confirmed = window.confirm(
-        `${needsReview.length} siswa memiliki data tidak lengkap dan memerlukan review manual. Apakah Anda yakin ingin melanjutkan proses kenaikan kelas?`
+        `${needsReview.length} siswa memiliki data tidak lengkap dan memerlukan review manual. Apakah Anda yakin ingin melanjutkan?`
       );
       if (!confirmed) return;
     }
@@ -747,17 +752,12 @@ export default function AcademicCyclePage() {
                             }`}
                           >
                             <option value="">Pilih Kelas</option>
-                            {siswa.status === "Tinggal Kelas" ? (
-                              <option value={selectedKelas._id}>
-                                {selectedKelas.nama} (Tahun Depan)
+                            {/* Tampilkan SEMUA kelas tujuan dari targetKelasList */}
+                            {targetKelasList.map((k) => (
+                              <option key={k._id} value={k._id}>
+                                {k.nama} - {k.tingkat} {k.jurusan}
                               </option>
-                            ) : (
-                              targetKelasList.map((k) => (
-                                <option key={k._id} value={k._id}>
-                                  {k.nama} - {k.tingkat} {k.jurusan}
-                                </option>
-                              ))
-                            )}
+                            ))}
                           </select>
                           {!siswa.toKelasId && (
                             <p className="text-xs text-red-600 mt-1">

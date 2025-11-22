@@ -3,9 +3,9 @@
 @import "tailwindcss";
 @import '../styles/toast.css';
 
-/* Custom Theme Variables untuk SMKScan */
+/* Custom Theme Variables untuk SMKPresensi */
 @theme {
-  /* Primary Colors - Palet Biru SMKScan */
+  /* Primary Colors - Palet Biru SMKPresensi */
   --color-primary: #00a3d4;
   --color-primary-light: #00b2e2;
   --color-primary-dark: #0094c8;
